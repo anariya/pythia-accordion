@@ -145,7 +145,7 @@ private:
                       NTRYJNMATCH, NTRYJRFEQ, NTRYSMEAR, MAXVETOFINTWO;
   static const double FACSTOPMASS, CLOSEDM2MAX, CLOSEDM2FRAC, EXPMAX,
                       MATCHPOSNEG, M2MINJRF, EMINJRF, EEXTRAJNMATCH,
-                      MDIQUARKMIN, CONVJRFEQ, CHECKPOS;
+    MDIQUARKMIN, CONVJRFEQ, CHECKPOS, PROBUNDOFINAL;
 
   // Pointer to flavour-composition-changing ropes.
   FragModPtr  flavRopePtr;
@@ -213,6 +213,10 @@ private:
 
   // Check remaining energy-momentum whether it is OK to continue.
   bool energyUsedUp(bool fromPos);
+
+  // Join the two string ends with a final hadron, and rescale rapidities to
+  // preserve energy-momentum conservation.
+  bool joinEnds(const Event& event);
 
   // Produce the final two partons to complete the system.
   bool finalTwo(bool fromPos, const Event& event, bool usedPosJun,

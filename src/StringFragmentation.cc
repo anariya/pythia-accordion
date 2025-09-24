@@ -632,6 +632,11 @@ const int    StringFragmentation::NTRYSMEAR     = 100;
 // Check that breakup vertex does not have negative tau^2 or t within roundoff.
 const double StringFragmentation::CHECKPOS     = 1e-10;
 
+// TODO: Change this to a setting.
+// Stores probability of undoing the final string break before joining string
+// ends.
+const double StringFragmentation::PROBUNDOFINAL = 0.5;
+
 //--------------------------------------------------------------------------
 
 // Initialize and save pointers.
@@ -863,11 +868,9 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
       if (doStrangeJunc && !fromPos && hasJunction && !usedNegJun)
         strangeJunc = strangeJuncParm;
 
-      // Construct trial hadron and check that energy remains.
-      // Break out of fragmentation loop if energy is used up.
+      // Construct trial hadron.
       nowEnd.newHadron(
         kappaModifier, forbidPopcornNow, strangeJunc, probQQmod);
-      if ( energyUsedUp(fromPos) ) break;
 
       // Optionally allow a hard baryon fragmentation in beam remnant.
       double zHad = (forbidPopcornNow && hardRemn) ?
@@ -918,6 +921,11 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
       nowEnd.storePrev();
       nowEnd.update();
       pRem -= pHad;
+
+      // Check if remaining string CM energy is negative. If so, go on to join
+      // string ends.
+      if (pRem.m2Calc() < 0 || pRem.e() < 0)
+	joinEnds(event);
 
     // End of fragmentation loop.
     }
@@ -1598,6 +1606,60 @@ bool StringFragmentation::setHadronVertices( Event& event) {
   return saneVertices;
 
 }
+
+//--------------------------------------------------------------------------
+
+// Join the two string ends with a final hadron, and rescale rapidities to
+// preserve energy-momentum conservation.
+
+bool StringFragmentation::joinEnds(const Event& event) {
+
+  // With probability probUndoFinal, revert the final string break before
+  // joining string ends.
+  if (rndmPtr->flat() < probUndoFinal)
+    revertFinalBreak(event);
+
+  // Calculate the transverse momentum of the final hadron.
+  double pxFinal = posEnd.pxOld + negEnd.pxOld;
+  double pyFinal = posEnd.pyOld + negEnd.pyOld;
+
+  // Pick the final hadron based on endpoint flavours.
+  int idFinal;
+  do {
+    idFinal = flavSelPtr->combine(posEnd.flavOld, negEnd.flavOld);
+  } while (idFinal == 0);
+
+  // Select particle mass.
+  double mFinal = particleDataPtr->mSel(idFinal);
+
+  // Calculate transverse mass.
+  double m2TFinal = pow2(mFinal) + pow2(pxFinal) + pow2(pyFinal);
+
+  // Select trial z fraction.
+  // TODO: Should this be more advanced than simple Lund?
+  double zFinal = zSelPtr->zLund(aLund, bLund);
+
+  // Calculate rapidity difference for left hadron (negative string end).
+
+  // Calculate rapidity difference for right hadron (positive string end).
+
+  // Calculate required four-momenta of last hadrons from each jet end.
+
+  // Separately boost jet ends to set rapidity differences.
+
+  // Define function giving the total energy of the system after some rapidity
+  // multiplier k is applied.
+
+  // Numerically solve for function to equal actual CM energy.
+
+  // Apply all rapidity multipliers and calculate kinematics.
+
+  // Determine difference between solution and actual CM energy.
+
+  // Steal the difference from all the hadrons.
+
+  // Done!
+}    
 
 //--------------------------------------------------------------------------
 
