@@ -1945,14 +1945,13 @@ bool Pythia::check() {
   double epDev = abs(pSum.e()) + abs(pSum.px()) + abs(pSum.py())
     + abs(pSum.pz());
   if (epDev > epTolErr * eLab) {
-    event.list();
-    cout << "epDev = " << epDev << " eLab = " << eLab << endl;
     logger.ERROR_MSG("energy-momentum not conserved");
     physical = false;
   } else if (epDev > epTolWarn * eLab) {
     logger.WARNING_MSG("energy-momentum not quite conserved");
   }
   if (abs(chargeSum) > 0.1) {
+    event.list();
     logger.ERROR_MSG("charge not conserved");
     physical = false;
   }

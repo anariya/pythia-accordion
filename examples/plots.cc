@@ -47,6 +47,11 @@ int main() {
     // Book histograms.
     Hist dNdy("dN/dy distribution of all hadrons", 100, -10., 10., false, true);
 
+    Hist deltayReg("delta y pdf for regular hadrons", 100, -5., 5., false, true);
+    Hist deltayJoin("delta y pdf for joining hadrons", 100, -5., 5., false, true);
+    Hist massReg("mass of regular hadrons", 500, 0., 2., false, true);
+    Hist massJoin("mass of joining hadrons", 500, 0., 2., false, true);
+
     // Event loop.
     for (int iEvent = 0; iEvent < nEvents; ++iEvent) {
       // Reset event record, add q-qbar pair.
@@ -63,22 +68,49 @@ int main() {
 	cout << "Error: Event generation failed." << endl;
 	break;
       }
-
-      // Add all rapidities to dN/dy histogram.
+       
+      // Get indices of primary hadrons in event record.
+      // Also add all rapidities to dN/dy histogram.
+      vector<int> primary;
       for (int i = 0; i < event.size(); ++i) {
 	int status = event[i].status();
 	if (status == 1216 || (status > 80 && status < 90)) {
-          dNdy.fill(event[i].y());
+	  primary.push_back(i);
+	  dNdy.fill(event[i].y());
+	  if (status == 1216)
+	    massJoin.fill(event[i].m());
+	  else
+	    massReg.fill(event[i].m());
+	}
+      }
+
+      // Step through string, adding rapidity spacings to appropriate histograms.
+      for (size_t i = 0; i < primary.size() - 1; ++i) {
+	int status = event[primary[i]].status();
+	double deltay = event[primary[i]].y() - event[primary[i + 1]].y();
+	if (status == 1216 || event[primary[i + 1]].status() == 1216) {
+	  // Joining step.
+	  deltayJoin.fill(deltay);
+	} else if (i == 0) {
+	  // First hadron.
+	} else if (i == primary.size() - 2) {
+	  // Last hadron.
+	} else {
+	  deltayReg.fill(deltay);
 	}
       }
     }
 
     // Normalise histograms.
     dNdy.normalizeSpectrum(nEvents);
+    deltayReg.normalizeIntegral();
+    deltayJoin.normalizeIntegral();
+    massReg.normalizeIntegral();
+    massJoin.normalizeIntegral();
 
     // Print histograms.
     pythia.stat();
-    cout << dNdy;
+    cout << dNdy << deltayReg << deltayJoin << massReg << massJoin;
   }
 
   // Finalise.

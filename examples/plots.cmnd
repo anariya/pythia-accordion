@@ -3,7 +3,6 @@ Main:numberOfEvents = 1000000
 ProcessLevel:all = off
 HadronLevel:Decay = off
 StringZ:useOldAExtra = off
-StringFlav:popcornRate = 0.0
 Random:seed = 121
 
 Main:subrun = 1

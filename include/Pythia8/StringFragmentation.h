@@ -206,6 +206,7 @@ private:
 
   // Information on the most recent hadrons fragmented from each string end.
   int iLastNeg, iLastPos;
+  int iLastNegPrev, iLastPosPrev;
   double zLastNeg, zLastPos;
 
   // Find region where to put first string break for closed gluon loop.
@@ -219,9 +220,12 @@ private:
   // Check remaining energy-momentum whether it is OK to continue.
   bool energyUsedUp(bool fromPos);
 
+  // Revert the most recent string break, before joining ends.
+  void revertFinalBreak(bool fromPos, const Event& event);
+  
   // Join the two string ends with a final hadron, and rescale rapidities to
   // preserve energy-momentum conservation.
-  bool joinEnds(const Event& event);
+  bool joinEnds(bool fromPos, const Event& event);
 
   // Produce the final two partons to complete the system.
   bool finalTwo(bool fromPos, const Event& event, bool usedPosJun,

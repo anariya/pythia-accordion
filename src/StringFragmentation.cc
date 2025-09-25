@@ -828,6 +828,7 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
       userHooksPtr->setStringEnds(&posEnd, &negEnd, iParton);
 
     for ( ; ; ) {
+      // cout << "top of frag loop, posEnd.flavOld = " << posEnd.flavOld.id << " negEnd.flavOld = " << negEnd.flavOld.id << endl;
 
       // Take a step either from the positive or the negative end.
       fromPos = (rndmPtr->flat() < 0.5);
@@ -922,18 +923,21 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
       int iNewHad = hadrons.append( nowEnd.idHad, statusHad, iPos, iNeg,
         0, 0, colHadOld, colHadNew, pHad, nowEnd.mHad);
       // cout << "Added new hadron." << endl;
-      if (pHad.e() < 0.) break;
 
+      // cout << "New flav pair was " << nowEnd.flavNew.id << endl;
       // Update string end and remaining momentum.
       nowEnd.storePrev();
       nowEnd.update();
+      // cout << "New end is " << nowEnd.flavOld.id << endl;
       pRem -= pHad;
 
       // Update variable storing most recent hadron.
       if (fromPos) {
+	iLastPosPrev = iLastPos;
 	iLastPos = iNewHad;
 	zLastPos = zHad;
       } else {
+	iLastNegPrev = iLastNeg;
 	iLastNeg = iNewHad;
 	zLastNeg = zHad;
       }
@@ -948,7 +952,7 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
     // End of fragmentation loop.
     }
     // It just will work.
-    if (joinEnds(event))
+    if (joinEnds(fromPos, event))
       break;
     /*
     // Check how many nearby string pieces there are for the last hadron.
@@ -1632,21 +1636,45 @@ bool StringFragmentation::setHadronVertices( Event& event) {
 
 //--------------------------------------------------------------------------
 
+// Revert the most recent string break, before joining ends.
+void StringFragmentation::revertFinalBreak(bool fromPos, const Event& event) {
+  
+  // Determine which end we are reverting from.
+  int iRevert = fromPos ? iLastPos : iLastNeg;
+
+  // Remove last hadron from that string break.
+  hadrons.remove(iRevert, iRevert, false);
+  if (fromPos)
+    iLastPos = iLastPosPrev;
+  else
+    iLastNeg = iLastNegPrev;
+
+  // Rewind the string end.
+  StringEnd& fromEnd = fromPos ? posEnd : negEnd;
+  fromEnd.updateToPrev();
+}
+
+//--------------------------------------------------------------------------
+
 // Join the two string ends with a final hadron, and rescale rapidities to
 // preserve energy-momentum conservation.
 
-bool StringFragmentation::joinEnds(const Event& event) {
+bool StringFragmentation::joinEnds(bool fromPos, const Event& event) {
 
   // With probability probUndoFinal, revert the final string break before
   // joining string ends.
-  // if (rndmPtr->flat() < probUndoFinal)
-  // revertFinalBreak(event);
+  if (rndmPtr->flat() < 0.5)
+    revertFinalBreak(fromPos, event);
 
   // cout << "Joining string ends." << endl;
+  // cout << "Pos end = " << posEnd.flavOld.id << endl;
+  // cout << "Neg end = " << negEnd.flavOld.id << endl;
 
   // If both string ends are diquarks, then we have to veto.
   if (posEnd.flavOld.isDiquark() && negEnd.flavOld.isDiquark())
     return false;
+
+  // 
 
   // Calculate the transverse momentum of the final hadron.
   double pxFinal = posEnd.pxOld + negEnd.pxOld;
@@ -1673,8 +1701,9 @@ bool StringFragmentation::joinEnds(const Event& event) {
   // cout << "Calcualted m2TFinal = " << m2TFinal << endl;
 
   // Select trial z fraction.
-  // TODO: Should this be more advanced than simple Lund?
-  double zFinal = zSelPtr->zLund(aLund, bLund * m2TFinal);
+
+  double zFinal = zSelPtr->zFrag(posEnd.flavOld.id, negEnd.flavOld.id,
+				 m2TFinal);
   // cout << "Selected zFinal = " << zFinal << endl;
 
   // DEBUG: Print out indices.
@@ -1690,7 +1719,7 @@ bool StringFragmentation::joinEnds(const Event& event) {
   double dyPos = -log((zFinal / zLastPos) * (hadrons[iLastPos].m() / mFinal)
 			* (1 - zLastPos));
 
-  // Calculate required longitudinal momenta of last hadrons from each jet end.
+  // Calculate required kinematics of last hadrons from each jet end.
   double m2TPos = hadrons[iLastPos].m2() + pow2(hadrons[iLastPos].px())
     + pow2(hadrons[iLastPos].py());
   double m2TNeg = hadrons[iLastNeg].m2() + pow2(hadrons[iLastNeg].px())
@@ -1699,27 +1728,35 @@ bool StringFragmentation::joinEnds(const Event& event) {
 		      + 0.25*exp(2*dyPos)*m2TPos);
   double pzNeg = -sqrt(-0.5*m2TNeg + 0.25*exp(-2*dyNeg)*m2TNeg
 		       + 0.25*exp(2*dyNeg)*m2TNeg);
-  cout << "pzPos = " << pzPos << endl;
-  cout << "pzNeg = " << pzNeg << endl;
+  double ePos = sqrt(m2TPos - pow2(pzPos));
+  double eNeg = sqrt(m2TNeg - pow2(pzNeg));
+  // cout << "pzPos = " << pzPos << endl;
+  // cout << "pzNeg = " << pzNeg << endl;
+
+  // Calculate rapidity differences required for boosts for jet end hadrons.
+  double dyBoostPos = hadrons[iLastPos].y() - dyPos;
+  // cout << "dyBoostPos = " << dyBoostPos << endl;
+  double dyBoostNeg = hadrons[iLastNeg].y() + dyNeg;
+  // cout << "dyBoostNeg = " << dyBoostNeg << endl;
 
   // Calculate betas for boosts of each of the jet end hadrons.
-  double betaPos = (hadrons[iLastPos].pz() * hadrons[iLastPos].e() - pzPos * sqrt(hadrons[iLastPos].m2() + pow2(hadrons[iLastPos].px()) + pow2(hadrons[iLastPos].py()) + pow2(pzPos))) / (pow2(hadrons[iLastPos].e()) + pow2(pzPos));
-  double betaNeg = (hadrons[iLastNeg].pz() * hadrons[iLastNeg].e() - pzNeg * sqrt(hadrons[iLastNeg].m2() + pow2(hadrons[iLastNeg].px()) + pow2(hadrons[iLastNeg].py()) + pow2(pzNeg))) / (pow2(hadrons[iLastNeg].e()) + pow2(pzNeg));
-
+  double betaPos = tanh(dyBoostPos);
+  double betaNeg = tanh(dyBoostNeg);
+    
   // Separately boost jet ends to set rapidity differences.
   for (int i = 0; i < hadrons.size(); ++i) {
     if (hadrons[i].status() == 83) {
       // Hadron is from positive end, so boost to match most recent positive
       // hadron.
-      hadrons[i].bst(0.0, 0.0, betaPos);
+      hadrons[i].bst(0., 0., -betaPos);
     } else if (hadrons[i].status() == 84) {
       // Hadron is from negative end, so boost to match most recent negative
       // hadron.
-      hadrons[i].bst(0.0, 0.0, betaNeg);
+      hadrons[i].bst(0., 0., -betaNeg);
     }
   }
-  cout << "Final pzPos = " << hadrons[iLastPos].pz() << endl;
-  cout << "Final pzNeg = " << hadrons[iLastNeg].pz() << endl;
+  // cout << "Final pzPos = " << hadrons[iLastPos].pz() << endl;
+  // cout << "Final pzNeg = " << hadrons[iLastNeg].pz() << endl;
 
   // Add the new hadron at rest.
   double eFinal = sqrt(m2TFinal);
@@ -1727,8 +1764,8 @@ bool StringFragmentation::joinEnds(const Event& event) {
   // TODO: Status code shouldn't be 1216! or 83
   hadrons.append(idFinal, 1216, iPos, iNeg, 0, 0, 0, 0, pFinal, mFinal);
 
-  cout << "All hadrons done." << endl;
-  hadrons.list();
+  // cout << "All hadrons done." << endl;
+  // hadrons.list();
 
   // Boost back to CM frame.
   Vec4 pTot;
@@ -1737,8 +1774,8 @@ bool StringFragmentation::joinEnds(const Event& event) {
   for (int i = 0; i < hadrons.size(); ++i)
     hadrons[i].bstback(pTot);
   
-  cout << "In CM frame. Doing accordion now. Event record = " << endl;
-  hadrons.list();
+  // cout << "In CM frame. Doing accordion now. Event record = " << endl;
+  // hadrons.list();
 
   // Define function giving the total energy of the system after some rapidity
   // multiplier k is applied.
@@ -1780,8 +1817,8 @@ bool StringFragmentation::joinEnds(const Event& event) {
     hadrons[i].e(eNew);
   }
 
-  cout << "Accordion done. Event record = " << endl;
-  hadrons.list();
+  // cout << "Accordion done. Event record = " << endl;
+  // hadrons.list();
 
   // Boost back to CM frame.
   pTot = Vec4(0., 0., 0., 0.);
@@ -1790,8 +1827,8 @@ bool StringFragmentation::joinEnds(const Event& event) {
   for (int i = 0; i < hadrons.size(); ++i)
     hadrons[i].bstback(pTot);
 
-  cout << "Back in CM frame. Accordion done. Event record = " << endl;
-  hadrons.list();
+  // cout << "Back in CM frame. Accordion done. Event record = " << endl;
+  // hadrons.list();
 
   bool doneAdjusting = true;
   
@@ -1832,8 +1869,8 @@ bool StringFragmentation::joinEnds(const Event& event) {
     }
   } while (!doneAdjusting);
 
-  cout << "Accordion adjustment done. Need to boost." << endl;
-  hadrons.list();
+  // cout << "Accordion adjustment done. Need to boost." << endl;
+  // hadrons.list();
 
   // for (int i = 0; i < hadrons.size(); ++i) {
   //   cout << "m = " << hadrons[i].m() << " mCalc = " << hadrons[i].mCalc() << endl;
@@ -1846,12 +1883,21 @@ bool StringFragmentation::joinEnds(const Event& event) {
   for (int i = 0; i < hadrons.size(); ++i)
     hadrons[i].bstback(pTot);
 
-  cout << "Accordion adjustment done." << endl;
-  hadrons.list();
+  // cout << "Accordion adjustment done." << endl;
+  // hadrons.list();
 
   pTot = Vec4(0., 0., 0., 0.);
-  for (int i = 0; i < hadrons.size(); ++i)
+  int chargeTot = 0;
+  for (int i = 0; i < hadrons.size(); ++i) {
     pTot += hadrons[i].p();
+    chargeTot += hadrons[i].charge();
+  }
+
+  // There is no reason for this to occur but it does.
+  if (chargeTot != 0) {
+    cout << "vetoing charge" << endl;
+    // return false;
+  }
   // cout << "Final pTot = " << pTot.px() << pTot.py() << pTot.pz() << pTot.e() << endl;
 
   // for (int i = 0; i < hadrons.size(); ++i) {
