@@ -113,7 +113,7 @@ public:
     setVertices(), constantTau(), smearOn(), traceColours(false),
     hadronVertex(), stopMass(), stopNewFlav(), stopSmear(),
     pNormJunction(), pMaxJunction(), eBothLeftJunction(),
-    eMaxLeftJunction(), eMinLeftJunction(), mJoin(), bLund(),
+    eMaxLeftJunction(), eMinLeftJunction(), mJoin(), aLund(), bLund(),
     closePackingFluxRatio(1.), closePackingPT20(1.), pT20(),
     xySmear(), maxSmear(), maxTau(), kappaVtx(), mc(), mb(),
     hasJunction(), isClosed(), iPos(), iNeg(), nExtraJoin(),
@@ -156,14 +156,15 @@ private:
   int    hadronVertex;
   double stopMass, stopNewFlav, stopSmear, pNormJunction, pMaxJunction,
          eBothLeftJunction, eMaxLeftJunction, eMinLeftJunction,
-         mJoin, bLund, closePackingFluxRatio, closePackingPT20,
+         mJoin, aLund, bLund, closePackingFluxRatio, closePackingPT20,
          qqSupPar, qqSupAnti, pT20, xySmear, maxSmear, maxTau,
          kappaVtx, mc, mb, dampPopcorn, aRemn, bRemn, strangeJuncParm;
 
   // Data members.
   bool   hasJunction, isClosed;
   int    iPos, iNeg, nExtraJoin;
-  double w2Rem, stopMassNow, kappaModifier, probQQmod, mVecRatio, closedM2max;
+  double w2Rem, stopMassNow, kappaModifier, probQQmod, mVecRatio, closedM2max,
+         cme;
   Vec4   pSum, pRem, pJunctionHadrons;
 
   // UserHooks flags.
@@ -202,6 +203,10 @@ private:
   // Information on the two current endpoints of the fragmenting
   // system, with backup copies if there is a veto.
   StringEnd posEnd, negEnd, posEndSave, negEndSave;
+
+  // Information on the most recent hadrons fragmented from each string end.
+  int iLastNeg, iLastPos;
+  double zLastNeg, zLastPos;
 
   // Find region where to put first string break for closed gluon loop.
   vector<int> findFirstRegion(int iSub, const ColConfig& colConfig,
