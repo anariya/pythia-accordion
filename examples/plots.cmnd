@@ -1,8 +1,9 @@
 Main:numberOfSubruns = 1
-Main:numberOfEvents = 1000000
+Main:numberOfEvents = 300000
 ProcessLevel:all = off
 HadronLevel:Decay = off
+Tune:ee = 1
+Next:numberCount = 50000
 StringZ:useOldAExtra = off
-Random:seed = 121
 
 Main:subrun = 1

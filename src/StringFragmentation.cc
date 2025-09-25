@@ -822,6 +822,8 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
     // Initialise indices of last string breaks.
     iLastPos = iPos;
     iLastNeg = iNeg;
+    iLastPosPrev = -1;
+    iLastNegPrev = -1;
 
     // Inform the UserHooks about the string to he hadronised.
     if ( doChangeFragPar || doVetoFrag )
@@ -1642,8 +1644,13 @@ void StringFragmentation::revertFinalBreak(bool fromPos, const Event& event) {
   // Determine which end we are reverting from.
   int iRevert = fromPos ? iLastPos : iLastNeg;
 
+  // Check that it is possible to revert, cancel otherwise.
+  if (fromPos ? iLastPosPrev < 0 : iLastNegPrev < 0)
+    return;
+
   // Remove last hadron from that string break.
   hadrons.remove(iRevert, iRevert, false);
+
   if (fromPos)
     iLastPos = iLastPosPrev;
   else
@@ -1710,6 +1717,12 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event) {
   // cout << iLastNeg << endl;
   // cout << iLastPos << endl;
   // cout << event.size() << endl;
+  if (iLastPos >= hadrons.size() || iLastNeg >= hadrons.size()) {
+    cout << "ERROR: Something is definitely wrong." << endl;
+    cout << "iLastPos: " << iLastPos << endl;
+    cout << "iLastNeg: " << iLastNeg << endl;
+    hadrons.list();
+  }
   
   // Calculate rapidity difference for left hadron (negative string end).
   double dyNeg = -log((zFinal / zLastNeg) * (hadrons[iLastNeg].m() / mFinal)
@@ -1718,6 +1731,10 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event) {
   // Calculate rapidity difference for right hadron (positive string end).
   double dyPos = -log((zFinal / zLastPos) * (hadrons[iLastPos].m() / mFinal)
 			* (1 - zLastPos));
+
+  // Huh??
+  dyNeg -= 0.3;
+  dyPos -= 0.3;
 
   // Calculate required kinematics of last hadrons from each jet end.
   double m2TPos = hadrons[iLastPos].m2() + pow2(hadrons[iLastPos].px())
