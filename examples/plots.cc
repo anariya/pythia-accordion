@@ -8,6 +8,7 @@
 // Created: 25/09/2025
 
 #include "Pythia8/Pythia.h"
+#include "Pythia8/StringFragmentation.h"
 #include <string>
 #include <vector>
 #include <map>
@@ -15,6 +16,11 @@
 
 using namespace std;
 using namespace Pythia8;
+
+namespace Pythia8 {
+  extern map<int, int> getFlavCountsReg();
+  extern map<int, int> getFlavCountsJoin();
+}
 
 int main() {
   // Specify string CM energy (GeV).
@@ -46,11 +52,15 @@ int main() {
 
     // Book histograms.
     Hist dNdy("dN/dy distribution of all hadrons", 100, -10., 10., false, true);
-
     Hist deltayReg("delta y pdf for regular hadrons", 100, -5., 5., false, true);
     Hist deltayJoin("delta y pdf for joining hadrons", 100, -5., 5., false, true);
-    Hist massReg("mass of regular hadrons", 500, 0., 2., false, true);
-    Hist massJoin("mass of joining hadrons", 500, 0., 2., false, true);
+
+    // Initialise maps that will store counts of each primary hadron ID, for
+    // joining step and regular hadrons.
+    map<int, int> hadronCountsReg;
+    map<int, int> hadronCountsJoin;
+    int totalReg = 0;
+    int totalJoin = 0;
 
     // Event loop.
     for (int iEvent = 0; iEvent < nEvents; ++iEvent) {
@@ -70,47 +80,87 @@ int main() {
       }
        
       // Get indices of primary hadrons in event record.
-      // Also add all rapidities to dN/dy histogram.
+      // Also add all rapidities to dN/dy histograms.
       vector<int> primary;
       for (int i = 0; i < event.size(); ++i) {
 	int status = event[i].status();
 	if (status == 1216 || (status > 80 && status < 90)) {
 	  primary.push_back(i);
 	  dNdy.fill(event[i].y());
-	  if (status == 1216)
-	    massJoin.fill(event[i].m());
-	  else
-	    massReg.fill(event[i].m());
+	  if (hadronCountsReg.find(event[i].id()) == hadronCountsReg.end())
+            hadronCountsReg[event[i].id()] = 0;
+	  if (hadronCountsJoin.find(event[i].id()) == hadronCountsJoin.end())
+            hadronCountsJoin[event[i].id()] = 0;
 	}
       }
 
       // Step through string, adding rapidity spacings to appropriate histograms.
+      // Also populate hadron counts.
       for (size_t i = 0; i < primary.size() - 1; ++i) {
 	int status = event[primary[i]].status();
 	double deltay = event[primary[i]].y() - event[primary[i + 1]].y();
-	if (status == 1216 || event[primary[i + 1]].status() == 1216) {
-	  // Joining step.
+	if (status == 1216) {
+	  // Joining hadron.
+	  deltayJoin.fill(deltay);
+	  hadronCountsJoin[event[primary[i]].id()] =
+	    hadronCountsJoin[event[primary[i]].id()] + 1;
+	  totalJoin += 1;
+	} else if (event[primary[i + 1]].status() == 1216) {
+	  // Next hadron is joining.
 	  deltayJoin.fill(deltay);
 	} else if (i == 0) {
 	  // First hadron.
-	} else if (i == primary.size() - 2) {
-	  // Last hadron.
 	} else {
+	  // Regular hadron.
 	  deltayReg.fill(deltay);
+	  hadronCountsReg[event[primary[i]].id()] =
+	    hadronCountsReg[event[primary[i]].id()] + 1;
+	  totalReg += 1;
 	}
       }
+    }
+
+    // Calculate ratios of hadron counts between regular and joining step.
+    // Print each out.
+    for (const auto& cpair : hadronCountsJoin) {
+      int hadId = cpair.first;
+      double regProb = (double)hadronCountsReg[hadId] / (double)totalReg;
+      double joinProb = (double)cpair.second / (double)totalJoin;
+      double ratio = joinProb / regProb;
+      string hadName = pdt.name(hadId);
+      double hadMass = pdt.m0(hadId);
+      cout << "Joining / regular ratio for " << hadName << " (" << hadId
+	   << ", m=" << hadMass << "):    " << ratio << endl;
+    }
+
+    // Calculate ratios of flavour counts between regular and joining step.
+    // Print each out.
+    map<int, int> flavCountsJoin = getFlavCountsJoin();
+    map<int, int> flavCountsReg = getFlavCountsReg();
+    int totalFlavJoin = 0;
+    int totalFlavReg = 0;
+    for (const auto& cpair : flavCountsJoin)
+      totalFlavJoin += cpair.second;
+    for (const auto& cpair : flavCountsReg)
+      totalFlavReg += cpair.second;
+    
+    for (const auto& cpair : flavCountsJoin) {
+      int flavCombId = cpair.first;
+      double regProb = (double)flavCountsReg[flavCombId] / (double)totalFlavReg;
+      double joinProb = (double)cpair.second / (double)totalFlavJoin;
+      double ratio = joinProb / regProb;
+      cout << "Joining / regular ratio for " << flavCombId
+	   << ":    " << ratio << endl;
     }
 
     // Normalise histograms.
     dNdy.normalizeSpectrum(nEvents);
     deltayReg.normalizeIntegral();
     deltayJoin.normalizeIntegral();
-    massReg.normalizeIntegral();
-    massJoin.normalizeIntegral();
 
     // Print histograms.
     pythia.stat();
-    cout << dNdy << deltayReg << deltayJoin << massReg << massJoin;
+    cout << dNdy << deltayReg << deltayJoin;
   }
 
   // Finalise.

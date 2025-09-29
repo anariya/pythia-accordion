@@ -635,7 +635,14 @@ const double StringFragmentation::CHECKPOS     = 1e-10;
 // TODO: Change this to a setting.
 // Stores probability of undoing the final string break before joining string
 // ends.
-const double StringFragmentation::PROBUNDOFINAL = 0.5;
+const double StringFragmentation::PROBUNDOFINAL = 0.0;
+
+// FOR DEBUGGING PURPOSES - stores counts of different flavour combinations
+// during hadron formation, for joining and regular hadrons.
+static map<int, int> flavCountsReg;
+static map<int, int> flavCountsJoin;
+map<int, int> getFlavCountsReg() { return flavCountsReg; }
+map<int, int> getFlavCountsJoin() { return flavCountsJoin; }  
 
 //--------------------------------------------------------------------------
 
@@ -881,6 +888,16 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
       nowEnd.newHadron(
         kappaModifier, forbidPopcornNow, strangeJunc, probQQmod);
 
+      // If not an endpoint hadron, increment flavour counts.
+      if (!((fromPos && iLastPosPrev == -1) || (!fromPos && iLastNegPrev == -1))) {
+	int id1 = nowEnd.flavOld.id;
+	int id2 = nowEnd.flavNew.id;
+        int flavCombId = min(id1, id2) + max(id1, id2) * 10000;
+        if (flavCountsReg.find(flavCombId) == flavCountsReg.end())
+	  flavCountsReg[flavCombId] = 0;
+	flavCountsReg[flavCombId] += 1;
+      }
+
       // Optionally allow a hard baryon fragmentation in beam remnant.
       double zHad = (forbidPopcornNow && hardRemn) ?
         zSelPtr->zLund( aRemn, bRemn) :
@@ -946,8 +963,8 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
 
       // Check if remaining string CM energy is negative. If so, go on to join
       // string ends.
-      if (pRem.m2Calc() < 0 || pRem.e() < 0) {
-
+      if (pRem.m2Calc() < 0 || pRem.e() < 0) { // I wanna try something
+      // if (hadrons.size() == 19) {
 	break;
       }
 
@@ -1670,8 +1687,17 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event) {
 
   // With probability probUndoFinal, revert the final string break before
   // joining string ends.
-  if (rndmPtr->flat() < 0.5)
+  if (rndmPtr->flat() < PROBUNDOFINAL)
     revertFinalBreak(fromPos, event);
+
+  // Increment flavour counts.
+
+  int id1 = posEnd.flavOld.id;
+  int id2 = negEnd.flavOld.id;
+  int flavCombId = min(id1, id2) + max(id1, id2) * 10000;
+  if (flavCountsJoin.find(flavCombId) == flavCountsJoin.end())
+    flavCountsJoin[flavCombId] = 0;
+  flavCountsJoin[flavCombId] += 1;
 
   // cout << "Joining string ends." << endl;
   // cout << "Pos end = " << posEnd.flavOld.id << endl;

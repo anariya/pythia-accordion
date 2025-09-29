@@ -1,9 +1,12 @@
 Main:numberOfSubruns = 1
-Main:numberOfEvents = 300000
+Main:numberOfEvents = 250000
 ProcessLevel:all = off
 HadronLevel:Decay = off
-Tune:ee = 1
 Next:numberCount = 50000
 StringZ:useOldAExtra = off
+StringFlav:probQQtoQ = 0
+StringFlav:popcornRate = 0
+StringFlav:probStoUD = 0
+
 
 Main:subrun = 1
