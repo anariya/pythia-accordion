@@ -145,20 +145,21 @@ private:
                       NTRYJNMATCH, NTRYJRFEQ, NTRYSMEAR, MAXVETOFINTWO;
   static const double FACSTOPMASS, CLOSEDM2MAX, CLOSEDM2FRAC, EXPMAX,
                       MATCHPOSNEG, M2MINJRF, EMINJRF, EEXTRAJNMATCH,
-    MDIQUARKMIN, CONVJRFEQ, CHECKPOS, PROBUNDOFINAL;
+    MDIQUARKMIN, CONVJRFEQ, CHECKPOS;
 
   // Pointer to flavour-composition-changing ropes.
   FragModPtr  flavRopePtr;
 
   // Initialization data, read from Settings.
   bool   closePacking, setVertices, constantTau, smearOn,
-         traceColours, hardRemn, doStrangeJunc;
+    traceColours, hardRemn, doStrangeJunc, accordionJoin;
   int    hadronVertex;
   double stopMass, stopNewFlav, stopSmear, pNormJunction, pMaxJunction,
          eBothLeftJunction, eMaxLeftJunction, eMinLeftJunction,
          mJoin, aLund, bLund, closePackingFluxRatio, closePackingPT20,
          qqSupPar, qqSupAnti, pT20, xySmear, maxSmear, maxTau,
-         kappaVtx, mc, mb, dampPopcorn, aRemn, bRemn, strangeJuncParm;
+         kappaVtx, mc, mb, dampPopcorn, aRemn, bRemn, strangeJuncParm,
+         probRevertFinal, stopMassAccordion;
 
   // Data members.
   bool   hasJunction, isClosed;

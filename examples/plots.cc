@@ -13,13 +13,14 @@
 #include <vector>
 #include <map>
 #include <fstream>
+#include <cmath>
 
 using namespace std;
 using namespace Pythia8;
 
 namespace Pythia8 {
-  extern map<int, int> getFlavCountsReg();
-  extern map<int, int> getFlavCountsJoin();
+  extern int getNVetoRegular();
+  extern int getNVetoAccordion();
 }
 
 int main() {
@@ -60,6 +61,7 @@ int main() {
 		       false, true);
     Hist deltayJoinBetween("delta y pdf between joining hadron", 100, -5., 5.,
 			   false, true);
+    Hist hadronPerEvent("distribution of number of hadrons N", 30, 0, 30, false, true);
 
     // Initialise maps that will store counts of each primary hadron ID, for
     // joining step and regular hadrons.
@@ -84,7 +86,7 @@ int main() {
 	cout << "Error: Event generation failed." << endl;
 	break;
       }
-       
+
       // Get indices of primary hadrons in event record.
       // Also add all rapidities to dN/dy histograms.
       vector<int> primary;
@@ -99,6 +101,8 @@ int main() {
             hadronCountsJoin[event[i].id()] = 0;
 	}
       }
+
+      hadronPerEvent.fill(primary.size());
 
       // Step through string, adding rapidity spacings to appropriate histograms.
       // Also populate hadron counts.
@@ -139,6 +143,8 @@ int main() {
 
     // Calculate ratios of hadron counts between regular and joining step.
     // Print each out.
+
+    double sse = 0.0;
     for (const auto& cpair : hadronCountsJoin) {
       int hadId = cpair.first;
       double regProb = (double)hadronCountsReg[hadId] / (double)totalReg;
@@ -148,27 +154,10 @@ int main() {
       double hadMass = pdt.m0(hadId);
       cout << "Joining / regular ratio for " << hadName << " (" << hadId
 	   << ", m=" << hadMass << "):    " << ratio << endl;
+      sse += pow2(ratio - 1);
     }
 
-    // Calculate ratios of flavour counts between regular and joining step.
-    // Print each out.
-    map<int, int> flavCountsJoin = getFlavCountsJoin();
-    map<int, int> flavCountsReg = getFlavCountsReg();
-    int totalFlavJoin = 0;
-    int totalFlavReg = 0;
-    for (const auto& cpair : flavCountsJoin)
-      totalFlavJoin += cpair.second;
-    for (const auto& cpair : flavCountsReg)
-      totalFlavReg += cpair.second;
-    
-    for (const auto& cpair : flavCountsJoin) {
-      int flavCombId = cpair.first;
-      double regProb = (double)flavCountsReg[flavCombId] / (double)totalFlavReg;
-      double joinProb = (double)cpair.second / (double)totalFlavJoin;
-      double ratio = joinProb / regProb;
-      cout << "Joining / regular ratio for " << flavCombId
-	   << ":    " << ratio << endl;
-    }
+    cout << "Hadrochemistry sum of squared errors = " << sse << endl;
 
     // Normalise histograms.
     dNdy.normalizeSpectrum(nEvents);
@@ -179,7 +168,16 @@ int main() {
 
     // Print histograms.
     pythia.stat();
-    cout << dNdy << deltayReg << deltayJoinPos << deltayJoinNeg << deltayJoinBetween;
+    cout << dNdy << deltayReg << deltayJoinPos << deltayJoinNeg << deltayJoinBetween << hadronPerEvent;
+
+    // Output veto count.
+    int numVetos;
+    if (pythia.flag("StringFragmentation:accordionJoin"))
+      numVetos = getNVetoAccordion();
+    else
+      numVetos = getNVetoRegular();
+
+    cout << "Number of finalTwo vetos = " << numVetos << endl;
   }
 
   // Finalise.

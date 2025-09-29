@@ -632,17 +632,12 @@ const int    StringFragmentation::NTRYSMEAR     = 100;
 // Check that breakup vertex does not have negative tau^2 or t within roundoff.
 const double StringFragmentation::CHECKPOS     = 1e-10;
 
-// TODO: Change this to a setting.
-// Stores probability of undoing the final string break before joining string
-// ends.
-  const double StringFragmentation::PROBUNDOFINAL = 0.7;
-
 // FOR DEBUGGING PURPOSES - stores counts of different flavour combinations
 // during hadron formation, for joining and regular hadrons.
-static map<int, int> flavCountsReg;
-static map<int, int> flavCountsJoin;
-map<int, int> getFlavCountsReg() { return flavCountsReg; }
-map<int, int> getFlavCountsJoin() { return flavCountsJoin; }  
+static int nVetoRegular = 0;
+static int nVetoAccordion = 0;
+int getNVetoRegular() { return nVetoRegular; }
+int getNVetoAccordion() { return nVetoAccordion; }
 
 //--------------------------------------------------------------------------
 
@@ -671,6 +666,11 @@ bool StringFragmentation::init(StringFlav* flavSelPtrIn,
   eBothLeftJunction = parm("StringFragmentation:eBothLeftJunction");
   eMaxLeftJunction  = parm("StringFragmentation:eMaxLeftJunction");
   eMinLeftJunction  = parm("StringFragmentation:eMinLeftJunction");
+
+  // Accordion join parameters.
+  accordionJoin     = flag("StringFragmentation:accordionJoin");
+  probRevertFinal   = parm("StringFragmentation:probRevertFinal");
+  stopMassAccordion = parm("StringFragmentation:stopMassAccordion");
 
   // Calculation and definition of hadron space-time production vertices.
   hadronVertex    = mode("HadronVertex:mode");
@@ -891,15 +891,8 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
       nowEnd.newHadron(
         kappaModifier, forbidPopcornNow, strangeJunc, probQQmod);
 
-      // If not an endpoint hadron, increment flavour counts.
-      if (!((fromPos && iLastPosPrev == -1) || (!fromPos && iLastNegPrev == -1))) {
-	int id1 = nowEnd.flavOld.id;
-	int id2 = nowEnd.flavNew.id;
-        int flavCombId = min(id1, id2) + max(id1, id2) * 10000;
-        if (flavCountsReg.find(flavCombId) == flavCountsReg.end())
-	  flavCountsReg[flavCombId] = 0;
-	flavCountsReg[flavCombId] += 1;
-      }
+      // If not doing accordion join, potentially break here.
+      if (!accordionJoin && energyUsedUp(fromPos)) break;
 
       // Optionally allow a hard baryon fragmentation in beam remnant.
       double zHad = (forbidPopcornNow && hardRemn) ?
@@ -964,28 +957,31 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
 	zLastNeg = zHad;
       }
 
-      // Check if remaining string CM energy is negative. If so, go on to join
-      // string ends.
-      if (pRem.m2Calc() < 0 || pRem.e() < 0) { // I wanna try something
-	// if (hadrons.size() == 19) {
+      // If doing accordion join, break here.
+      if (accordionJoin && (pRem.m2Calc() < stopMassAccordion || pRem.e() < 0)) {
 	break;
       }
 
     // End of fragmentation loop.
     }
-    // It just will work.
-    if (joinEnds(fromPos, event))
-      break;
+    
+    // Do final two regularly or with accordion join.
+    if (accordionJoin) {
+      if (joinEnds(fromPos, event))
+	break;
+      nVetoAccordion += 1;
+    } else {
+      if (finalTwo(fromPos, event, usedPosJun, usedNegJun))
+	break;
+      nVetoRegular += 1;
+    }
+    
     /*
     // Check how many nearby string pieces there are for the last hadron.
     StringEnd& nowEnd = (fromPos) ? posEnd : negEnd;
     kappaModifier = 0.;
     if (closePacking) kappaEffModifier( system, nowEnd, fromPos, iParton,
       rapPairs, pRem.mCalc(), event);
-
-    // When done, join in the middle. If this works, then really done.
-    if ( finalTwo(fromPos, event, usedPosJun, usedNegJun) )
-      break;
     */
     
     // Else remove produced particles (except from first two junction legs)
@@ -1691,7 +1687,7 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
 
   // With probability probUndoFinal, revert the final string break before
   // joining string ends.
-  if (rndmPtr->flat() < PROBUNDOFINAL)
+  if (rndmPtr->flat() < probRevertFinal)
     revertFinalBreak(fromPos, event);
 
   // Generate a new trial hadron from current string end, which will be the
@@ -1706,8 +1702,7 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
 
   // This is totally fine but I just can't be bothered dealing with it in the
   // code and it's rare enough.
-  if (iLastPosPrev == -1 || iLastNegPrev == -1 || hadrons.size() < 3) {
-    cout << "I just can't be bothered." << endl;
+  if (hadrons.size() < 3) {
     return false;
   }
 
@@ -1716,21 +1711,6 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   // cout << "fromEnd.flavNew = " << fromEnd.flavNew.id << endl;
   // cout << "idHad = " << fromEnd.idHad << endl;
   // cout << "otherEnd.flavOld = " << otherEnd.flavOld.id << endl;
-
-  // DEBUG: Increment flavour counts
-  int id1 = fromEnd.flavOld.id;
-  int id2 = fromEnd.flavNew.id;
-  int flavCombId = min(id1, id2) + max(id1, id2) * 10000;
-  if (flavCountsJoin.find(flavCombId) == flavCountsJoin.end())
-    flavCountsJoin[flavCombId] = 0;
-  flavCountsJoin[flavCombId] += 1;
-
-  id1 = otherEnd.flavOld.id;
-  id2 = -fromEnd.flavNew.id;
-  flavCombId = min(id1, id2) + max(id1, id2) * 10000;
-  if (flavCountsJoin.find(flavCombId) == flavCountsJoin.end())
-    flavCountsJoin[flavCombId] = 0;
-  flavCountsJoin[flavCombId] += 1;
   
   // Calculate the transverse momentum of the two joining hadrons.
   double pxFinalPos = fromPos ? posEnd.pxOld + posEnd.pxNew
@@ -1751,10 +1731,9 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   
   do {
     // TODO: Should I use this or just combine?
-    // idFinalNew = flavSelPtr->getHadronID(fromEnd.flavNew.anti(),
-    //  otherEnd.flavOld, pTFinalNew, kappaModifier, true);
-    idFinalNew = flavSelPtr->combine(flav1, flav2);
-  } while (idFinalNew == 0);
+    idFinalNew = flavSelPtr->getHadronID(flav1, flav2, pTFinalNew,
+					 kappaModifier, true);
+ } while (idFinalNew == 0);
 
   // Select particle mass.
   double mFinalNew = particleDataPtr->mSel(idFinalNew);
@@ -1790,10 +1769,10 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   // between joining hadrons. Use fromPos to determine which.
   double dyBetween;
   if (fromPos)
-    dyBetween = log((zFinalNeg / zFinalPos) * (mFinalPos / mFinalNeg)
+    dyBetween = -log((zFinalNeg / zFinalPos) * (mFinalPos / mFinalNeg)
 		     * (1 - zFinalPos));
   else
-    dyBetween = log((zFinalPos / zFinalNeg) * (mFinalNeg / mFinalPos)
+    dyBetween = -log((zFinalPos / zFinalNeg) * (mFinalNeg / mFinalPos)
 		     * (1 - zFinalNeg));
 
   // cout << "dyNeg = " << dyNeg << endl;
@@ -1804,14 +1783,8 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   // The negative side joining hadron will be placed at rest (but this is
   // arbitrary since we will soon boost to CM frame).
   
-  double dyBoostPos = -hadrons[iLastPos].y() + dyBetween + dyPos;
+  double dyBoostPos = -hadrons[iLastPos].y() - dyBetween + dyPos;
   double dyBoostNeg = -hadrons[iLastNeg].y() - dyNeg;
-
-  // There is some freak bug where this happens. I have no idea why.
-  if (!isfinite(dyBoostPos) || !isfinite(dyBoostNeg)) {
-    cout << "the freak bug" << endl;
-    return false;
-  }
 
   // Calculate betas for boosts of each of the jet end hadrons.
   double betaPos = tanh(dyBoostPos);
@@ -1883,8 +1856,10 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   // Numerically solve for function to equal actual CM energy.
   double k = 1.0;
   // TODO: Adjust the parameters here.
-  brent(k, scaledEnergy, cme, 0.1, 10.0, 0.001, 100);
+  brent(k, scaledEnergy, cme, 0.1, 10.0, 0.001, 100000);
   // cout << "Solved for k = " << k << endl;
+
+  // hadrons.list();
 
   // Apply all rapidity multipliers and calculate kinematics.
   // TODO: Could get slight speedup by pre-calculating all transverse momenta.
@@ -1908,6 +1883,34 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   for (int i = 0; i < hadrons.size(); ++i)
     hadrons[i].bstback(pTot);
 
+  // A second accordion, as a treat.
+  // Numerically solve for function to equal actual CM energy.
+  k = 1.0;
+  // TODO: Adjust the parameters here.
+  brent(k, scaledEnergy, cme, 0.1, 10.0, 0.001, 100000);
+  // cout << "Solved for k = " << k << endl;
+
+  // hadrons.list();
+
+  // Apply all rapidity multipliers and calculate kinematics.
+  // TODO: Could get slight speedup by pre-calculating all transverse momenta.
+  for (int i = 0; i < hadrons.size(); ++i) {
+    double yNew = hadrons[i].y() * k;
+    double pzNew = sqrt(hadrons[i].m2() + pow2(hadrons[i].px())
+			+ pow2(hadrons[i].py())) * sinh(yNew);
+    double eNew = sqrt(hadrons[i].m2() + pow2(hadrons[i].px())
+		       + pow2(hadrons[i].py()) + pow2(pzNew));
+    hadrons[i].pz(pzNew);
+    hadrons[i].e(eNew);
+  }
+
+  // Boost back to CM frame.
+  pTot = Vec4(0., 0., 0., 0.);
+  for (int i = 0; i < hadrons.size(); ++i)
+    pTot += hadrons[i].p();
+  for (int i = 0; i < hadrons.size(); ++i)
+    hadrons[i].bstback(pTot);
+  
   // cout << "Back in CM frame. Accordion done. Event record = " << endl;
   // hadrons.list();
 
@@ -1922,6 +1925,11 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
       pzTot += abs(hadrons[i].pz());
     }
     double eAdjust = cme - eTot;
+    // Sometimes this happens. I have no idea why.
+    if (eAdjust > 30) {
+      cout << "Unusually large eAdjust = " << eAdjust << endl;
+      return false;
+    }
     doneAdjusting = true;
 
     // Steal the difference from all the hadrons.
@@ -2168,8 +2176,8 @@ bool StringFragmentation::finalTwo(bool fromPos, const Event& event,
     }
 
     // Update status codes for junction baryons.
-    int statusHadPos = 83;
-    int statusHadNeg = 84;
+    int statusHadPos = 1216;
+    int statusHadNeg = 1216;
 
     // Assign code 87 (fromPos) and 88 (fromNeg) for junction baryons.
     // Check status of iInvDir for possible popcorn meson shifting
