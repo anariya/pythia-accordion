@@ -52,8 +52,14 @@ int main() {
 
     // Book histograms.
     Hist dNdy("dN/dy distribution of all hadrons", 100, -10., 10., false, true);
-    Hist deltayReg("delta y pdf for regular hadrons", 100, -5., 5., false, true);
-    Hist deltayJoin("delta y pdf for joining hadrons", 100, -5., 5., false, true);
+    Hist deltayReg("delta y pdf for regular hadrons", 100, -5., 5., false,
+		   true);
+    Hist deltayJoinNeg("delta y pdf for left joining neighbour",
+			     100, -5., 5., false, true);
+    Hist deltayJoinPos("delta y pdf for right joining neighbour", 100, -5., 5.,
+		       false, true);
+    Hist deltayJoinBetween("delta y pdf between joining hadron", 100, -5., 5.,
+			   false, true);
 
     // Initialise maps that will store counts of each primary hadron ID, for
     // joining step and regular hadrons.
@@ -99,17 +105,28 @@ int main() {
       for (size_t i = 0; i < primary.size() - 1; ++i) {
 	int status = event[primary[i]].status();
 	double deltay = event[primary[i]].y() - event[primary[i + 1]].y();
-	if (status == 1216) {
-	  // Joining hadron.
-	  deltayJoin.fill(deltay);
+	if (status == 1216 && event[primary[i + 1]].status() == 1216) {
+	  // Between joining hadrons.
+	  deltayJoinBetween.fill(deltay);
+	  hadronCountsJoin[event[primary[i]].id()] =
+	    hadronCountsJoin[event[primary[i]].id()] + 1;
+	  totalJoin += 1;
+	} else if (status == 1216) {
+	  // Neighbour to join, and itself a joining hadron.
+	  deltayJoinPos.fill(deltay);
 	  hadronCountsJoin[event[primary[i]].id()] =
 	    hadronCountsJoin[event[primary[i]].id()] + 1;
 	  totalJoin += 1;
 	} else if (event[primary[i + 1]].status() == 1216) {
-	  // Next hadron is joining.
-	  deltayJoin.fill(deltay);
+	  // Neighbour to join.
+          deltayJoinNeg.fill(deltay);
 	} else if (i == 0) {
 	  // First hadron.
+	} else if (i == primary.size() - 2) {
+	  // Don't count rapidity spacing to last hadron, but count as regular.
+	  hadronCountsReg[event[primary[i]].id()] =
+	    hadronCountsReg[event[primary[i]].id()] + 1;
+	  totalReg += 1;
 	} else {
 	  // Regular hadron.
 	  deltayReg.fill(deltay);
@@ -156,11 +173,13 @@ int main() {
     // Normalise histograms.
     dNdy.normalizeSpectrum(nEvents);
     deltayReg.normalizeIntegral();
-    deltayJoin.normalizeIntegral();
+    deltayJoinPos.normalizeIntegral();
+    deltayJoinNeg.normalizeIntegral();
+    deltayJoinBetween.normalizeIntegral();
 
     // Print histograms.
     pythia.stat();
-    cout << dNdy << deltayReg << deltayJoin;
+    cout << dNdy << deltayReg << deltayJoinPos << deltayJoinNeg << deltayJoinBetween;
   }
 
   // Finalise.
