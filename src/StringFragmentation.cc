@@ -1760,18 +1760,18 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   // between joining hadrons. Use fromPos to determine which.
   double dyBetween;
   if (fromPos)
-    dyBetween = -log((zFinalNeg / zFinalPos) * (mFinalPos / mFinalNeg)
+    dyBetween = log((zFinalNeg / zFinalPos) * (mFinalPos / mFinalNeg)
 		     * (1 - zFinalPos));
   else
-    dyBetween = -log((zFinalPos / zFinalNeg) * (mFinalNeg / mFinalPos)
+    dyBetween = log((zFinalPos / zFinalNeg) * (mFinalNeg / mFinalPos)
 		     * (1 - zFinalNeg));
 
    // Calculate required rapidity spacings of last hadrons from each jet end.
   // The negative side joining hadron will be placed at rest (but this is
   // arbitrary since we will soon boost to CM frame).
   
-  double dyBoostPos = -hadrons[iLastPos].y() - dyBetween + dyPos;
-  double dyBoostNeg = -hadrons[iLastNeg].y() - dyNeg;
+  double dyBoostPos = -1.0 * hadrons[iLastPos].y() + dyBetween + dyPos;
+  double dyBoostNeg = -1.0 * hadrons[iLastNeg].y() - dyNeg;
 
   // Calculate betas for boosts of each of the jet end hadrons.
   double betaPos = tanh(dyBoostPos);
