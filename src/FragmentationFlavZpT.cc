@@ -717,6 +717,14 @@ void StringFlav::init(double kappaModifier, double strangeJunc,
 
 FlavContainer StringFlav::pickGauss(FlavContainer& flavOld, bool allowPop) {
 
+  /* // DEBUG: Making this really simple for now.
+  FlavContainer flavNew;
+  flavNew.rank = flavOld.rank + 1;
+  flavNew.id = 1;
+  if ((flavOld.id > 0 && flavOld.id < 9))
+    flavNew.id = -flavNew.id;
+    return flavNew; */
+  
   // Initial values for new flavour.
   FlavContainer flavNew;
   flavNew.rank = flavOld.rank + 1;

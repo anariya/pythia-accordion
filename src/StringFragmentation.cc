@@ -32,6 +32,13 @@ const double StringEnd::MEANMMIN = 0.2;
 const double StringEnd::MEANM    = 0.8;
 const double StringEnd::MEANPT   = 0.4;
 
+// DEBUGGING
+static int phireg = 0;
+static int phijoin = 0;
+static int totalreg = 0;
+static int totaljoin = 0;  
+
+
 //--------------------------------------------------------------------------
 
 // Set up initial endpoint values from input.
@@ -70,7 +77,7 @@ void StringEnd::newHadron(double kappaModifier, bool forbidPopcornNow,
   // In case we are using the thermal model or Gaussian with
   // mT2 suppression we have to pick the pT first.
   if (thermalModel || mT2suppression) {
-
+    cout << "thermal" << endl;
     // Pick its transverse momentum.
     pair<double, double> pxy = pTSelPtr->pxy(flavNew.id, kappaModifier);
     pxNew = pxy.first;
@@ -101,12 +108,20 @@ void StringEnd::newHadron(double kappaModifier, bool forbidPopcornNow,
       // Reinitialise probabilities if close-packing.
       if ( (closePacking && (probQQmod < 1. || kappaModifier > 0.))
         || strangeJunc > 0. ) {
+	cout << "huh" << endl;
         flavSelNow.init(kappaModifier, strangeJunc, probQQmod);
         flavNew = flavSelNow.pick( flavOld );
         idHad   = flavSelNow.combine( flavOld, flavNew);
       } else {
         flavNew = flavSelPtr->pick( flavOld );
         idHad   = flavSelPtr->combine( flavOld, flavNew);
+        if (idHad == 333)
+	  phireg += 1;
+	totalreg += 1;
+      }
+
+      if (idHad == 0 || (forbidPopcornNow && (abs(idHad)/1000)%10 == 0)) {
+	// cout << "idHad = 0 from " << flavOld.id << " and " << flavNew.id << endl;
       }
     } while (idHad == 0 || (forbidPopcornNow && (abs(idHad)/1000)%10 == 0));
 
@@ -635,14 +650,16 @@ const double StringFragmentation::CHECKPOS     = 1e-10;
 // TODO: Change this to a setting.
 // Stores probability of undoing the final string break before joining string
 // ends.
-const double StringFragmentation::PROBUNDOFINAL = 0.0;
+  const double StringFragmentation::PROBUNDOFINAL = 0.0;
 
 // FOR DEBUGGING PURPOSES - stores counts of different flavour combinations
 // during hadron formation, for joining and regular hadrons.
 static map<int, int> flavCountsReg;
 static map<int, int> flavCountsJoin;
 map<int, int> getFlavCountsReg() { return flavCountsReg; }
-map<int, int> getFlavCountsJoin() { return flavCountsJoin; }  
+map<int, int> getFlavCountsJoin() { return flavCountsJoin; }
+double getPhiRatio() { return ((double)phijoin / (double)totaljoin) / ((double)phireg / (double)totalreg); }
+int getTotalJoin() { return totaljoin; }
 
 //--------------------------------------------------------------------------
 
@@ -964,7 +981,7 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
       // Check if remaining string CM energy is negative. If so, go on to join
       // string ends.
       if (pRem.m2Calc() < 0 || pRem.e() < 0) { // I wanna try something
-      // if (hadrons.size() == 19) {
+      // if (hadrons.size() == 5) {
 	break;
       }
 
@@ -1691,7 +1708,6 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event) {
     revertFinalBreak(fromPos, event);
 
   // Increment flavour counts.
-
   int id1 = posEnd.flavOld.id;
   int id2 = negEnd.flavOld.id;
   int flavCombId = min(id1, id2) + max(id1, id2) * 10000;
@@ -1722,7 +1738,11 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event) {
   int idFinal;
   do {
     idFinal = flavSelPtr->combine(posEnd.flavOld, negEnd.flavOld);
-    // cout << "Selected idFinal = " << idFinal << endl;
+    if (idFinal == 333)
+      phijoin += 1;
+    totaljoin += 1;  
+    // if (idFinal == 0)
+      // cout << "Selected idFinal = " << idFinal << endl;
   } while (idFinal == 0);
 
   // Select particle mass.
@@ -1751,16 +1771,12 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event) {
   }
   
   // Calculate rapidity difference for left hadron (negative string end).
-  double dyNeg = -log((zFinal / zLastNeg) * (hadrons[iLastNeg].m() / mFinal)
+  double dyNeg = log((zFinal / zLastNeg) * (hadrons[iLastNeg].m() / mFinal)
 		       * (1 - zLastNeg));
   
   // Calculate rapidity difference for right hadron (positive string end).
   double dyPos = -log((zFinal / zLastPos) * (hadrons[iLastPos].m() / mFinal)
 			* (1 - zLastPos));
-
-  // Huh??
-  dyNeg -= 0.3;
-  dyPos -= 0.3;
 
   // Calculate required kinematics of last hadrons from each jet end.
   double m2TPos = hadrons[iLastPos].m2() + pow2(hadrons[iLastPos].px())
@@ -1845,7 +1861,7 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event) {
   // Numerically solve for function to equal actual CM energy.
   double k = 1.0;
   // TODO: Adjust the parameters here.
-  brent(k, scaledEnergy, cme, 0.1, 10.0, 0.001, 100);
+  brent(k, scaledEnergy, cme, 0.1, 10.0, 0.001, 10000);
   // cout << "Solved for k = " << k << endl;
 
   // Apply all rapidity multipliers and calculate kinematics.
@@ -1874,7 +1890,8 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event) {
   // hadrons.list();
 
   bool doneAdjusting = true;
-  
+
+  int nTryAdjust = 0;
   do {
     // Determine difference between solution and actual CM energy.
     double eTot = 0.0;
@@ -1909,6 +1926,12 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event) {
 	hadrons[i].pz(pzFudged);
       else
 	hadrons[i].pz(-pzFudged);
+    }
+
+    nTryAdjust += 1;
+    if (nTryAdjust > 100) {
+      cout << "failed to adjust" << endl;
+      return false;
     }
   } while (!doneAdjusting);
 

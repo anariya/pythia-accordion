@@ -20,6 +20,8 @@ using namespace Pythia8;
 namespace Pythia8 {
   extern map<int, int> getFlavCountsReg();
   extern map<int, int> getFlavCountsJoin();
+  extern double getPhiRatio();
+  extern int getTotalJoin();
 }
 
 int main() {
@@ -91,6 +93,13 @@ int main() {
             hadronCountsReg[event[i].id()] = 0;
 	  if (hadronCountsJoin.find(event[i].id()) == hadronCountsJoin.end())
             hadronCountsJoin[event[i].id()] = 0;
+	  if (status == 1216) {
+	    hadronCountsJoin[event[i].id()] = hadronCountsJoin[event[i].id()] + 1;
+	    totalJoin += 1;
+	  } else {
+	    hadronCountsReg[event[i].id()] = hadronCountsReg[event[i].id()] + 1;
+	    totalReg += 1;
+	  }
 	}
       }
 
@@ -102,9 +111,6 @@ int main() {
 	if (status == 1216) {
 	  // Joining hadron.
 	  deltayJoin.fill(deltay);
-	  hadronCountsJoin[event[primary[i]].id()] =
-	    hadronCountsJoin[event[primary[i]].id()] + 1;
-	  totalJoin += 1;
 	} else if (event[primary[i + 1]].status() == 1216) {
 	  // Next hadron is joining.
 	  deltayJoin.fill(deltay);
@@ -113,9 +119,6 @@ int main() {
 	} else {
 	  // Regular hadron.
 	  deltayReg.fill(deltay);
-	  hadronCountsReg[event[primary[i]].id()] =
-	    hadronCountsReg[event[primary[i]].id()] + 1;
-	  totalReg += 1;
 	}
       }
     }
@@ -161,6 +164,9 @@ int main() {
     // Print histograms.
     pythia.stat();
     cout << dNdy << deltayReg << deltayJoin;
+
+    cout << "phi ratio = " << getPhiRatio() << endl;
+    cout << "total join = " << getTotalJoin() << endl;
   }
 
   // Finalise.
