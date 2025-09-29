@@ -1,11 +1,9 @@
 Main:numberOfSubruns = 1
-Main:numberOfEvents = 50000
+Main:numberOfEvents = 1000000
 ProcessLevel:all = off
 HadronLevel:Decay = off
 Next:numberCount = 50000
+Tune:ee = 1
 StringZ:useOldAExtra = off
-StringFlav:probQQtoQ = 0
-StringFlav:probStoUD = 0
-StringFlav:mesonUDvector = 0
 
 Main:subrun = 1

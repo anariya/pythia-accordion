@@ -635,7 +635,7 @@ const double StringFragmentation::CHECKPOS     = 1e-10;
 // TODO: Change this to a setting.
 // Stores probability of undoing the final string break before joining string
 // ends.
-const double StringFragmentation::PROBUNDOFINAL = 0.0;
+  const double StringFragmentation::PROBUNDOFINAL = 0.7;
 
 // FOR DEBUGGING PURPOSES - stores counts of different flavour combinations
 // during hadron formation, for joining and regular hadrons.
@@ -879,6 +879,9 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
         }
       }
 
+      if (forbidPopcornNow)
+	cout << "HUH" << endl;
+
       // Optionally allow for strangeness enhancement around the junction.
       double strangeJunc = 0.;
       if (doStrangeJunc && !fromPos && hasJunction && !usedNegJun)
@@ -963,8 +966,8 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
 
       // Check if remaining string CM energy is negative. If so, go on to join
       // string ends.
-      // if (pRem.m2Calc() < 0 || pRem.e() < 0) { // I wanna try something
-      if (hadrons.size() == 19) {
+      if (pRem.m2Calc() < 0 || pRem.e() < 0) { // I wanna try something
+	// if (hadrons.size() == 19) {
 	break;
       }
 
@@ -1697,6 +1700,23 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   StringEnd& otherEnd = fromPos ? negEnd : posEnd;
   fromEnd.newHadron(kappaModifier, forbidPopcornNow, strangeJunc, probQQmod);
 
+  // If would be joining two diquarks, then fail.
+  if (otherEnd.flavOld.isDiquark() && fromEnd.flavNew.isDiquark())
+    return false;
+
+  // This is totally fine but I just can't be bothered dealing with it in the
+  // code and it's rare enough.
+  if (iLastPosPrev == -1 || iLastNegPrev == -1 || hadrons.size() < 3) {
+    cout << "I just can't be bothered." << endl;
+    return false;
+  }
+
+  // cout << "fromPos: " << fromPos << endl;
+  // cout << "fromEnd.flavOld = " << fromEnd.flavOld.id << endl;
+  // cout << "fromEnd.flavNew = " << fromEnd.flavNew.id << endl;
+  // cout << "idHad = " << fromEnd.idHad << endl;
+  // cout << "otherEnd.flavOld = " << otherEnd.flavOld.id << endl;
+
   // DEBUG: Increment flavour counts
   int id1 = fromEnd.flavOld.id;
   int id2 = fromEnd.flavNew.id;
@@ -1726,11 +1746,14 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   double pTFinalNew = fromPos ? sqrt(pow2(pxFinalPos) + pow2(pyFinalPos))
     : sqrt(pow2(pxFinalNeg) + pow2(pyFinalNeg));
   int idFinalNew;
+  FlavContainer flav1 = fromEnd.flavNew.anti();
+  FlavContainer flav2 = otherEnd.flavOld;
+  
   do {
     // TODO: Should I use this or just combine?
     // idFinalNew = flavSelPtr->getHadronID(fromEnd.flavNew.anti(),
     //  otherEnd.flavOld, pTFinalNew, kappaModifier, true);
-    idFinalNew = flavSelPtr->combine(fromEnd.flavNew.anti(), otherEnd.flavOld);
+    idFinalNew = flavSelPtr->combine(flav1, flav2);
   } while (idFinalNew == 0);
 
   // Select particle mass.
@@ -1755,11 +1778,11 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   double zFinalNeg = zSelPtr->zFrag(flav1Neg, flav2Neg, m2TFinalNeg);
 
   // Calculate rapidity difference for left hadron (negative string end).
-  double dyNeg = log((zFinalNeg / zLastNeg)
+  double dyNeg = -log((zFinalNeg / zLastNeg)
 		      * (hadrons[iLastNeg].m() / mFinalNeg) * (1 - zLastNeg));
   
   // Calculate rapidity difference for right hadron (positive string end).
-  double dyPos = log((zFinalPos / zLastPos)
+  double dyPos = -log((zFinalPos / zLastPos)
 		      * (hadrons[iLastPos].m() / mFinalPos) * (1 - zLastPos));
 
   // Calculate rapidity spacing between two joining hadrons.
@@ -1773,9 +1796,9 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
     dyBetween = log((zFinalPos / zFinalNeg) * (mFinalNeg / mFinalPos)
 		     * (1 - zFinalNeg));
 
-  //cout << "dyNeg = " << dyNeg << endl;
-  //cout << "dyPos = " << dyPos << endl;
-  //cout << "dyBetween = " << dyBetween << endl;
+  // cout << "dyNeg = " << dyNeg << endl;
+  // cout << "dyPos = " << dyPos << endl;
+  // cout << "dyBetween = " << dyBetween << endl;
   
   // Calculate required rapidity spacings of last hadrons from each jet end.
   // The negative side joining hadron will be placed at rest (but this is
@@ -1783,6 +1806,12 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   
   double dyBoostPos = -hadrons[iLastPos].y() + dyBetween + dyPos;
   double dyBoostNeg = -hadrons[iLastNeg].y() - dyNeg;
+
+  // There is some freak bug where this happens. I have no idea why.
+  if (!isfinite(dyBoostPos) || !isfinite(dyBoostNeg)) {
+    cout << "the freak bug" << endl;
+    return false;
+  }
 
   // Calculate betas for boosts of each of the jet end hadrons.
   double betaPos = tanh(dyBoostPos);
@@ -1818,9 +1847,9 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   hadrons[iFinalPos].bst(0., 0., betaBetween);
 
   // DEBUG
-  //cout << "Kinematics done. dyPos = " << hadrons[iLastPos].y() - hadrons[iFinalPos].y() << endl;
-  //cout << "dyNeg = " << hadrons[iFinalNeg].y() - hadrons[iLastNeg].y() << endl;
-  //cout << "dyBetween = " << hadrons[iFinalPos].y() - hadrons[iFinalNeg].y() << endl;
+  // cout << "Kinematics done. dyPos = " << hadrons[iLastPos].y() - hadrons[iFinalPos].y() << endl;
+  // cout << "dyNeg = " << hadrons[iFinalNeg].y() - hadrons[iLastNeg].y() << endl;
+  // cout << "dyBetween = " << hadrons[iFinalPos].y() - hadrons[iFinalNeg].y() << endl;
 
   // Boost back to CM frame.
   Vec4 pTot;
