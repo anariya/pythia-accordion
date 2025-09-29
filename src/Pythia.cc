@@ -466,8 +466,6 @@ bool Pythia::init() {
   // Master choice of shower model.
   int showerModel = mode("PartonShowers:model");
 
-  cout << "well got here" << endl;
-
   // Set up values related to CKKW-L merging.
   bool doUserMerging     = flag("Merging:doUserMerging");
   bool doMGMerging       = flag("Merging:doMGMerging");

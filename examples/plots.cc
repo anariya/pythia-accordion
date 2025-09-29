@@ -46,7 +46,7 @@ int main() {
   for (int iRun = 1; iRun <= nSubruns; ++iRun) {
     // Initialise.
     pythia.readFile("plots.cmnd", iRun);
-    string runName = pythia.word("Main:spareWord1");
+
     cout << "Initialising PYTHIA for q-qbar hadronisation, string mass = "
 	 << cme << endl;
     if (!pythia.init()) return 1;

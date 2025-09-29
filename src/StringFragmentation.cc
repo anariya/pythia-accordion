@@ -969,11 +969,9 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
     if (accordionJoin) {
       if (joinEnds(fromPos, event))
 	break;
-      nVetoAccordion += 1;
     } else {
       if (finalTwo(fromPos, event, usedPosJun, usedNegJun))
 	break;
-      nVetoRegular += 1;
     }
     
     /*
@@ -1705,12 +1703,6 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   if (hadrons.size() < 3) {
     return false;
   }
-
-  // cout << "fromPos: " << fromPos << endl;
-  // cout << "fromEnd.flavOld = " << fromEnd.flavOld.id << endl;
-  // cout << "fromEnd.flavNew = " << fromEnd.flavNew.id << endl;
-  // cout << "idHad = " << fromEnd.idHad << endl;
-  // cout << "otherEnd.flavOld = " << otherEnd.flavOld.id << endl;
   
   // Calculate the transverse momentum of the two joining hadrons.
   double pxFinalPos = fromPos ? posEnd.pxOld + posEnd.pxNew
@@ -1730,10 +1722,9 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   FlavContainer flav2 = otherEnd.flavOld;
   
   do {
-    // TODO: Should I use this or just combine?
     idFinalNew = flavSelPtr->getHadronID(flav1, flav2, pTFinalNew,
 					 kappaModifier, true);
- } while (idFinalNew == 0);
+  } while (idFinalNew == 0);
 
   // Select particle mass.
   double mFinalNew = particleDataPtr->mSel(idFinalNew);
@@ -1775,11 +1766,7 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
     dyBetween = -log((zFinalPos / zFinalNeg) * (mFinalNeg / mFinalPos)
 		     * (1 - zFinalNeg));
 
-  // cout << "dyNeg = " << dyNeg << endl;
-  // cout << "dyPos = " << dyPos << endl;
-  // cout << "dyBetween = " << dyBetween << endl;
-  
-  // Calculate required rapidity spacings of last hadrons from each jet end.
+   // Calculate required rapidity spacings of last hadrons from each jet end.
   // The negative side joining hadron will be placed at rest (but this is
   // arbitrary since we will soon boost to CM frame).
   
@@ -1819,11 +1806,6 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   double betaBetween = tanh(dyBetween);
   hadrons[iFinalPos].bst(0., 0., betaBetween);
 
-  // DEBUG
-  // cout << "Kinematics done. dyPos = " << hadrons[iLastPos].y() - hadrons[iFinalPos].y() << endl;
-  // cout << "dyNeg = " << hadrons[iFinalNeg].y() - hadrons[iLastNeg].y() << endl;
-  // cout << "dyBetween = " << hadrons[iFinalPos].y() - hadrons[iFinalNeg].y() << endl;
-
   // Boost back to CM frame.
   Vec4 pTot;
   for (int i = 0; i < hadrons.size(); ++i)
@@ -1855,11 +1837,7 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
 
   // Numerically solve for function to equal actual CM energy.
   double k = 1.0;
-  // TODO: Adjust the parameters here.
   brent(k, scaledEnergy, cme, 0.1, 10.0, 0.001, 100000);
-  // cout << "Solved for k = " << k << endl;
-
-  // hadrons.list();
 
   // Apply all rapidity multipliers and calculate kinematics.
   // TODO: Could get slight speedup by pre-calculating all transverse momenta.
@@ -1872,9 +1850,6 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
     hadrons[i].pz(pzNew);
     hadrons[i].e(eNew);
   }
-
-  // cout << "Accordion done. Event record = " << endl;
-  // hadrons.list();
 
   // Boost back to CM frame.
   pTot = Vec4(0., 0., 0., 0.);
@@ -1886,11 +1861,7 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   // A second accordion, as a treat.
   // Numerically solve for function to equal actual CM energy.
   k = 1.0;
-  // TODO: Adjust the parameters here.
   brent(k, scaledEnergy, cme, 0.1, 10.0, 0.001, 100000);
-  // cout << "Solved for k = " << k << endl;
-
-  // hadrons.list();
 
   // Apply all rapidity multipliers and calculate kinematics.
   // TODO: Could get slight speedup by pre-calculating all transverse momenta.
@@ -1911,9 +1882,6 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   for (int i = 0; i < hadrons.size(); ++i)
     hadrons[i].bstback(pTot);
   
-  // cout << "Back in CM frame. Accordion done. Event record = " << endl;
-  // hadrons.list();
-
   bool doneAdjusting = true;
   
   do {
@@ -1925,31 +1893,21 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
       pzTot += abs(hadrons[i].pz());
     }
     double eAdjust = cme - eTot;
-    // Sometimes this happens. I have no idea why.
-    if (eAdjust > 30) {
-      cout << "Unusually large eAdjust = " << eAdjust << endl;
-      return false;
-    }
     doneAdjusting = true;
 
     // Steal the difference from all the hadrons.
     for (int i = 0; i < hadrons.size(); ++i) {
-      // cout << "Adjusting hadron " << i << endl;
-      // cout << "Previous energy = " << hadrons[i].e() << endl;
       double energyProp = abs(hadrons[i].pz()) / pzTot;
       double eFudged = hadrons[i].e() + eAdjust * energyProp;
-      // cout << "New energy = " << eFudged << endl;
       double pzFudged = sqrt(pow2(eFudged) - pow2(hadrons[i].px())
 			     - pow2(hadrons[i].py()) - hadrons[i].m2());
       if (isnan(pzFudged)) {
 	doneAdjusting = false;
 	continue;
       }
-      // cout << "Old pz = " << hadrons[i].pz() << endl;
-      // cout << "New pz = " << pzFudged << endl;
-      // cout << "Hadron mass = " << hadrons[i].m() << endl;
+
       double mCalcTemp = sqrt(pow2(eFudged) - pow2(hadrons[i].px()) - pow2(hadrons[i].py()) - pow2(pzFudged));
-      // cout << "Calc mass = " << mCalcTemp << endl;
+
       hadrons[i].e(eFudged);
       if (hadrons[i].pz() >= 0)
 	hadrons[i].pz(pzFudged);
@@ -1958,13 +1916,6 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
     }
   } while (!doneAdjusting);
 
-  // cout << "Accordion adjustment done. Need to boost." << endl;
-  // hadrons.list();
-
-  // for (int i = 0; i < hadrons.size(); ++i) {
-  //   cout << "m = " << hadrons[i].m() << " mCalc = " << hadrons[i].mCalc() << endl;
-  // }
-
   // Boost back to CM frame.
   pTot = Vec4(0., 0., 0., 0.);
   for (int i = 0; i < hadrons.size(); ++i)
@@ -1972,27 +1923,6 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   for (int i = 0; i < hadrons.size(); ++i)
     hadrons[i].bstback(pTot);
 
-  // cout << "Accordion adjustment done." << endl;
-  // hadrons.list();
-
-  pTot = Vec4(0., 0., 0., 0.);
-  int chargeTot = 0;
-  for (int i = 0; i < hadrons.size(); ++i) {
-    pTot += hadrons[i].p();
-    chargeTot += hadrons[i].charge();
-  }
-
-  // There is no reason for this to occur but it does.
-  if (chargeTot != 0) {
-    cout << "vetoing charge" << endl;
-    // return false;
-  }
-  // cout << "Final pTot = " << pTot.px() << pTot.py() << pTot.pz() << pTot.e() << endl;
-
-  // for (int i = 0; i < hadrons.size(); ++i) {
-  //   cout << "m = " << hadrons[i].m() << " mCalc = " << hadrons[i].mCalc() << endl;
-  // }
-  
   // Done!
   return true;
 }    

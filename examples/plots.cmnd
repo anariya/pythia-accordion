@@ -1,15 +1,10 @@
-Main:numberOfSubruns = 2
-Main:numberOfEvents = 10000
+Main:numberOfSubruns = 1
+Main:numberOfEvents = 1000000
 ProcessLevel:all = off
 HadronLevel:Decay = off
 Next:numberCount = 100000
-Tune:ee = 1
 StringZ:useOldAExtra = off
 
 Main:subrun = 1
-StringFragmentation:accordionJoin = on
-
-Main:subrun = 2
-StringFragmentation:accordionJoin = on
-StringFragmentation:probRevertFinal = 0.9
-StringFragmentation:stopMassAccordion = 2.0
+StringFragmentation:accordionJoin = off
+StringFragmentation:stopMass = 0.2
