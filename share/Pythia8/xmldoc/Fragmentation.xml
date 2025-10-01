@@ -465,7 +465,7 @@ are produced. This allows for some variation in the number of hadrons produced
 using the accordion join.
 </parm>
 
-<parm name="StringFragmentation:stopMassAccordion" default="0.5" min="0.0" max="3.0">
+<parm name="StringFragmentation:stopMassAccordion" default="0.5" min="0.0" max="10.0">
 The dreaded stopMass returns for a much tamer comeback. Now the reach of its power
 is limited to adjusting the N distribution.
 </parm>

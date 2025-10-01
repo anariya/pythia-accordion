@@ -192,7 +192,7 @@ void StringFlav::init() {
                             5312, 5322, 5332, 5342, 5412, 5422, 5432, 5442,
                             5512, 5522, 5532, 5542,
                             5114, 5214, 5224, 5314, 5324, 5334, 5414, 5424,
-                            5434, 5444, 5514, 5524, 5534, 5544, 5554 };
+			                                5434, 5444, 5514, 5524, 5534, 5544, 5554 };
     for (int i = 0; i < 18; i++) hadIDsProd.push_back( baryonLight[i] );
     // Check how many heavy baryons to include.
     if (nNewQuark > 4) {
@@ -716,11 +716,16 @@ void StringFlav::init(double kappaModifier, double strangeJunc,
 // Gaussian pTq^2 distribution.
 
 FlavContainer StringFlav::pickGauss(FlavContainer& flavOld, bool allowPop) {
-
+  
   // Initial values for new flavour.
   FlavContainer flavNew;
   flavNew.rank = flavOld.rank + 1;
-
+  /*
+  flavNew.id = (rndmPtr->flat() < 0.5) ? 1 : 2;
+  if ((flavOld.id > 0 && flavOld.id < 9))
+    flavNew.id = -flavNew.id;
+  return flavNew;
+  */
   // For original diquark assign popcorn quark and whether popcorn meson.
   int idOld = abs(flavOld.id);
   if (flavOld.rank == 0 && idOld > 1000 && allowPop) assignPopQ(flavOld);
@@ -805,7 +810,6 @@ FlavContainer StringFlav::pickGauss(FlavContainer& flavOld, bool allowPop) {
   if (wgtsPtr != nullptr)
     wgtsPtr->flavCount(abs(flavNew.id), false, doOldBaryon);
   return flavNew;
-
 }
 
 //--------------------------------------------------------------------------

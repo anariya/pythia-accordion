@@ -112,9 +112,9 @@ int main() {
 	if (status == 1216 && event[primary[i + 1]].status() == 1216) {
 	  // Between joining hadrons.
 	  deltayJoinBetween.fill(deltay);
-	  hadronCountsJoin[event[primary[i]].id()] =
-	    hadronCountsJoin[event[primary[i]].id()] + 1;
-	  totalJoin += 1;
+	  // hadronCountsJoin[event[primary[i]].id()] =
+	  //   hadronCountsJoin[event[primary[i]].id()] + 1;
+	  // totalJoin += 1;
 	} else if (status == 1216) {
 	  // Neighbour to join, and itself a joining hadron.
 	  deltayJoinPos.fill(deltay);
@@ -153,7 +153,8 @@ int main() {
       string hadName = pdt.name(hadId);
       double hadMass = pdt.m0(hadId);
       cout << "Joining / regular ratio for " << hadName << " (" << hadId
-	   << ", m=" << hadMass << "):    " << ratio << endl;
+	   << ", m=" << hadMass << "):    " << ratio
+	   << "  counts in joining = " << cpair.second << endl;
       sse += pow2(ratio - 1);
     }
 

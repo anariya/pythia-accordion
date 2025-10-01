@@ -547,7 +547,7 @@ void StringRegion::setUp(Vec4 p1, Vec4 p2, int col1, int col2,
 
     // Calculate w2, minimum value. Lightcone directions = input.
     w2 = 2. * (p1 * p2);
-    if (w2 < m2Join) {isSetUp = true; isEmpty = true; return;}
+    if (w2 < m2Join) {isSetUp = true; isEmpty = true; cout << "empty 1" << endl; return;}
     pPos = p1;
     pNeg = p2;
 
@@ -573,7 +573,7 @@ void StringRegion::setUp(Vec4 p1, Vec4 p2, int col1, int col2,
     }
 
     // If still small invariant mass then empty region (e.g. in gg system).
-    if (w2 < m2Join) {isSetUp = true; isEmpty = true; return;}
+    if (w2 < m2Join) {isSetUp = true; isEmpty = true; cout << "empty 2" << endl; return;}
 
     // Find two lightconelike longitudinal four-vector directions.
     double root = sqrt( max(TINY, rootSq) );
@@ -582,7 +582,7 @@ void StringRegion::setUp(Vec4 p1, Vec4 p2, int col1, int col2,
     pPos = (1. + k1) * p1 - k2 * p2;
     pNeg = (1. + k2) * p2 - k1 * p1;
     if (pPos.e() < TINY || pNeg.e() < TINY)
-      {isSetUp = true; isEmpty = true; return;}
+      {isSetUp = true; isEmpty = true; cout << "empty 3" << endl; return;}
   }
 
   // Find two spacelike transverse four-vector directions.
@@ -665,6 +665,10 @@ void StringSystem::setUp(const vector<int>& iSys, const Event& event,
   system.resize(sizeRegions);
   bool forward = ( event[iSys[0]].col() != 0 );
 
+
+  if (sizeStrings != 1)
+    cout << "here might be a bug" << endl;
+  
   // Set up the lowest-lying regions.
   for (int i = 0; i < sizeStrings; ++i) {
     Vec4 p1 = event[ iSys[i] ].p();

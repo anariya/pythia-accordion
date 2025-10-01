@@ -97,6 +97,7 @@ void StringEnd::newHadron(double kappaModifier, bool forbidPopcornNow,
 
     // Pick new flavour and form a new hadron.
     // For forbidPopcornNow == true it must be a baryon.
+    flavNew = flavSelPtr->pick(flavOld);
     do {
       // Reinitialise probabilities if close-packing.
       if ( (closePacking && (probQQmod < 1. || kappaModifier > 0.))
@@ -105,7 +106,7 @@ void StringEnd::newHadron(double kappaModifier, bool forbidPopcornNow,
         flavNew = flavSelNow.pick( flavOld );
         idHad   = flavSelNow.combine( flavOld, flavNew);
       } else {
-        flavNew = flavSelPtr->pick( flavOld );
+        // flavNew = flavSelPtr->pick( flavOld );
         idHad   = flavSelPtr->combine( flavOld, flavNew);
       }
     } while (idHad == 0 || (forbidPopcornNow && (abs(idHad)/1000)%10 == 0));
@@ -159,6 +160,12 @@ Vec4 StringEnd::kinematicsHadron( StringSystem& system,
 
     // Referance to current string region.
     StringRegion& region = system.region( iPosNew, iNegNew);
+    if (system.iReg(iPosNew, iNegNew) != 0 || system.system.size() != 1) {
+      cout << "here's the bug" << endl;
+      cout << "iPosNew = " << iPosNew << endl;
+      cout << "iNegNew = " << iNegNew << endl;
+      cout << "system.system.size() = " << system.system.size() << endl;
+    }
     colNew = fromPos ? region.colPos : region.colNeg;
 
     // Now begin special section for rapid processing of low region.
@@ -182,6 +189,7 @@ Vec4 StringEnd::kinematicsHadron( StringSystem& system,
       // A first step out of a low region also OK, if there are more regions.
       // Negative energy signals failure, i.e. in last region.
       } else {
+	cout << "decrementing here" << endl;
         --iInvNew;
         if (iInvNew < 0) return Vec4(0., 0., 0., -1.);
 
@@ -198,7 +206,6 @@ Vec4 StringEnd::kinematicsHadron( StringSystem& system,
       pTNew   = region.pHad( 0., 0., pxNew, pyNew);
     }
 
-
     // Now begin normal treatment of nontrivial regions.
     // Set up four-vectors in a region not visited before.
     if (!region.isSetUp) region.setUp(
@@ -210,6 +217,7 @@ Vec4 StringEnd::kinematicsHadron( StringSystem& system,
     // If new region is vanishingly small, continue immediately to next.
     // Negative energy signals failure to do this, i.e. moved too low.
     if (region.isEmpty) {
+      cout << "region is empty" << endl;
       xDirHad = (iDirNew == iDirOld) ? xDirOld : 1.;
       xInvHad = 0.;
       pSoFar += region.pHad( xPosHad, xNegHad, 0., 0.);
@@ -284,6 +292,7 @@ Vec4 StringEnd::kinematicsHadron( StringSystem& system,
 
     // Step up to new region if new x- > 1.
     if (xInvNew > 1.) {
+      cout << "xInvNew > 1" << endl;
       xInvHad = (iInvNew == iInvOld) ? 1. - xInvOld : 1.;
       xDirHad = 0.;
       pSoFar += region.pHad( xPosHad, xNegHad, 0., 0.);
@@ -293,6 +302,7 @@ Vec4 StringEnd::kinematicsHadron( StringSystem& system,
 
     // Step down to new region if new x+ < 0.
     } else if (xDirNew < 0.) {
+      cout << "xDirNew < 0" << endl;
       xDirHad = (iDirNew == iDirOld) ? xDirOld : 1.;
       xInvHad = 0.;
       pSoFar += region.pHad( xPosHad, xNegHad, 0., 0.);
@@ -321,6 +331,8 @@ Vec4 StringEnd::kinematicsHadron( StringSystem& system,
 Vec4 StringEnd::kinematicsHadronTmp( StringSystem system, Vec4 pRem,
   double phi, double mult) {
 
+  cout << "we are here" << endl;
+  
   // Now estimate the energy the next hadron will take.
   double mRem     = pRem.mCalc();
   double meanM    = (mRem > 0.0) ? max( MEANMMIN, min( MEANM, mRem) ) : MEANM;
@@ -787,6 +799,8 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
   }
 
   // Set up kinematics of string evolution ( = motion).
+  if (iParton.size() != 2 || iParton[0] != 1 || iParton[1] != 2)
+    cout << "here might be a bug 2" << endl;
   system.setUp(iParton, event, mVecRatio);
   stopMassNow = stopMass;
 
@@ -827,8 +841,8 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
     Vec4 hadMomPos, hadMomNeg;
 
     // Initialise indices of last string breaks.
-    iLastPos = iPos;
-    iLastNeg = iNeg;
+    iLastPos = -1;
+    iLastNeg = -1;
     iLastPosPrev = -1;
     iLastNegPrev = -1;
 
@@ -842,6 +856,7 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
       // Take a step either from the positive or the negative end.
       fromPos = (rndmPtr->flat() < 0.5);
       StringEnd& nowEnd = (fromPos) ? posEnd : negEnd;
+      StringEnd& otherEnd = (fromPos) ? negEnd : posEnd;
 
       // Check how many nearby string pieces there are for the next hadron.
       kappaModifier = 0.;
@@ -879,9 +894,6 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
         }
       }
 
-      if (forbidPopcornNow)
-	cout << "HUH" << endl;
-
       // Optionally allow for strangeness enhancement around the junction.
       double strangeJunc = 0.;
       if (doStrangeJunc && !fromPos && hasJunction && !usedNegJun)
@@ -894,6 +906,7 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
       // If not doing accordion join, potentially break here.
       if (!accordionJoin && energyUsedUp(fromPos)) break;
 
+
       // Optionally allow a hard baryon fragmentation in beam remnant.
       double zHad = (forbidPopcornNow && hardRemn) ?
         zSelPtr->zLund( aRemn, bRemn) :
@@ -902,6 +915,9 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
       // Construct kinematics of the new hadron.
       Vec4 pHad = nowEnd.kinematicsHadron(system, newVertex, zHad);
       int statusHad = (fromPos) ? 83 : 84;
+
+      if (pHad.e() < 0)
+	break;
 
       // Assign code 87 (fromPos) and 88 (fromNeg) for junction baryons.
       if (abs(nowEnd.idHad) > 1000 && abs(nowEnd.idHad) < 10000) {
@@ -959,9 +975,9 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
 
       // If doing accordion join, break here.
       if (accordionJoin && (pRem.m2Calc() < stopMassAccordion || pRem.e() < 0)) {
+      // if (accordionJoin && hadrons.size() == 15) {
 	break;
       }
-
     // End of fragmentation loop.
     }
     
@@ -969,9 +985,11 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
     if (accordionJoin) {
       if (joinEnds(fromPos, event))
 	break;
+      nVetoAccordion += 1;
     } else {
       if (finalTwo(fromPos, event, usedPosJun, usedNegJun))
 	break;
+      nVetoRegular += 1;
     }
     
     /*
@@ -1690,20 +1708,11 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
 
   // Generate a new trial hadron from current string end, which will be the
   // final string break.
+  // TODO: Remove this, it's just for bugfixing
   StringEnd& fromEnd = fromPos ? posEnd : negEnd;
   StringEnd& otherEnd = fromPos ? negEnd : posEnd;
   fromEnd.newHadron(kappaModifier, forbidPopcornNow, strangeJunc, probQQmod);
 
-  // If would be joining two diquarks, then fail.
-  if (otherEnd.flavOld.isDiquark() && fromEnd.flavNew.isDiquark())
-    return false;
-
-  // This is totally fine but I just can't be bothered dealing with it in the
-  // code and it's rare enough.
-  if (hadrons.size() < 3) {
-    return false;
-  }
-  
   // Calculate the transverse momentum of the two joining hadrons.
   double pxFinalPos = fromPos ? posEnd.pxOld + posEnd.pxNew
     : posEnd.pxOld - negEnd.pxNew;
@@ -1720,11 +1729,19 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   int idFinalNew;
   FlavContainer flav1 = fromEnd.flavNew.anti();
   FlavContainer flav2 = otherEnd.flavOld;
-  
+
+  // If we would be joining two diquarks, then we have to veto.
+  if (flav1.isDiquark() && flav2.isDiquark())
+    return false;
+
+  int nTryHadron = 0;
   do {
     idFinalNew = flavSelPtr->getHadronID(flav1, flav2, pTFinalNew,
 					 kappaModifier, true);
-  } while (idFinalNew == 0);
+    nTryHadron += 1;
+  } while (idFinalNew == 0 && nTryHadron < 10000);
+  if (idFinalNew == 0)
+    return false;
 
   // Select particle mass.
   double mFinalNew = particleDataPtr->mSel(idFinalNew);
@@ -1748,12 +1765,16 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   double zFinalNeg = zSelPtr->zFrag(flav1Neg, flav2Neg, m2TFinalNeg);
 
   // Calculate rapidity difference for left hadron (negative string end).
-  double dyNeg = -log((zFinalNeg / zLastNeg)
+  double dyNeg = 0;
+  if (iLastNeg >= 0)
+    dyNeg = -log((zFinalNeg / zLastNeg)
 		      * (hadrons[iLastNeg].m() / mFinalNeg) * (1 - zLastNeg));
   
   // Calculate rapidity difference for right hadron (positive string end).
-  double dyPos = -log((zFinalPos / zLastPos)
-		      * (hadrons[iLastPos].m() / mFinalPos) * (1 - zLastPos));
+  double dyPos = 0;
+  if (iLastPos >= 0)
+    dyPos = -log((zFinalPos / zLastPos)
+  		      * (hadrons[iLastPos].m() / mFinalPos) * (1 - zLastPos));
 
   // Calculate rapidity spacing between two joining hadrons.
   // It can be calculated two different ways - fragmenting pos-neg or neg-pos
@@ -1769,21 +1790,29 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
    // Calculate required rapidity spacings of last hadrons from each jet end.
   // The negative side joining hadron will be placed at rest (but this is
   // arbitrary since we will soon boost to CM frame).
-  
-  double dyBoostPos = -1.0 * hadrons[iLastPos].y() + dyBetween + dyPos;
-  double dyBoostNeg = -1.0 * hadrons[iLastNeg].y() - dyNeg;
+
+  double dyBoostPos = 0;
+  double dyBoostNeg = 0;
+  if (iLastPos >= 0)
+    dyBoostPos = -1.0 * hadrons[iLastPos].y() + dyBetween + dyPos;
+  if (iLastNeg >= 0)
+    dyBoostNeg = -1.0 * hadrons[iLastNeg].y() - dyNeg;
 
   // Calculate betas for boosts of each of the jet end hadrons.
-  double betaPos = tanh(dyBoostPos);
-  double betaNeg = tanh(dyBoostNeg);
+  double betaPos = 0;
+  double betaNeg = 0;
+  if (iLastPos >= 0)
+    betaPos = tanh(dyBoostPos);
+  if (iLastNeg >= 0)
+    betaNeg = tanh(dyBoostNeg);
     
   // Separately boost jet ends to set rapidity differences.
   for (int i = 0; i < hadrons.size(); ++i) {
-    if (hadrons[i].status() == 83) {
+    if (iLastPos >= 0 && hadrons[i].status() == 83) {
       // Hadron is from positive end, so boost to match most recent positive
       // hadron.
       hadrons[i].bst(0., 0., betaPos);
-    } else if (hadrons[i].status() == 84) {
+    } else if (iLastNeg >= 0 && hadrons[i].status() == 84) {
       // Hadron is from negative end, so boost to match most recent negative
       // hadron.
       hadrons[i].bst(0., 0., betaNeg);

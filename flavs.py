@@ -3,8 +3,8 @@ from random import random
 flavs = [1, 2]
 probs = [0.5, 0.5] # nt used yet
 
-numHadrons = 19
-numEvents = 10000000
+numHadrons = 17
+numEvents = 1000000
 numDDbar = 0
 numUUbar = 0
 numUDbar = 0
@@ -23,7 +23,7 @@ for _ in range(numEvents):
     for i in range(numHadrons - 1):
         fromPos = random() < 0.5
         if fromPos:
-            posNew = -1 if (random() < 0.02) else -2
+            posNew = -1 if (random() < 0.5) else -2
             if firstPos:
                 firstPos = False
             elif (posNew == -1 and posOld == 1):
@@ -36,7 +36,7 @@ for _ in range(numEvents):
                 numDUbar += 1
             posOld = -posNew
         else:
-            negNew = 1 if (random() < 0.02) else 2
+            negNew = 1 if (random() < 0.5) else 2
             if firstNeg:
                 firstNeg = False
             elif (negNew == 1 and negOld == -1):
