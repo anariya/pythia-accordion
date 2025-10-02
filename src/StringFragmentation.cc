@@ -189,7 +189,6 @@ Vec4 StringEnd::kinematicsHadron( StringSystem& system,
       // A first step out of a low region also OK, if there are more regions.
       // Negative energy signals failure, i.e. in last region.
       } else {
-	cout << "decrementing here" << endl;
         --iInvNew;
         if (iInvNew < 0) return Vec4(0., 0., 0., -1.);
 
@@ -850,6 +849,8 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
     if ( doChangeFragPar || doVetoFrag )
       userHooksPtr->setStringEnds(&posEnd, &negEnd, iParton);
 
+    bool newHadronNeeded = true;
+
     for ( ; ; ) {
       // cout << "top of frag loop, posEnd.flavOld = " << posEnd.flavOld.id << " negEnd.flavOld = " << negEnd.flavOld.id << endl;
 
@@ -904,8 +905,9 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
         kappaModifier, forbidPopcornNow, strangeJunc, probQQmod);
 
       // If not doing accordion join, potentially break here.
-      if (!accordionJoin && energyUsedUp(fromPos)) break;
-
+      if (!accordionJoin && energyUsedUp(fromPos)) {
+	break;
+      } 
 
       // Optionally allow a hard baryon fragmentation in beam remnant.
       double zHad = (forbidPopcornNow && hardRemn) ?
@@ -916,9 +918,11 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
       Vec4 pHad = nowEnd.kinematicsHadron(system, newVertex, zHad);
       int statusHad = (fromPos) ? 83 : 84;
 
-      if (pHad.e() < 0)
+      if (pHad.e() < 0) {
+	newHadronNeeded = false;
 	break;
-
+      }
+	
       // Assign code 87 (fromPos) and 88 (fromNeg) for junction baryons.
       if (abs(nowEnd.idHad) > 1000 && abs(nowEnd.idHad) < 10000) {
         if (fromPos && !usedPosJun && event[iPos].statusAbs() == 74)  {
@@ -975,15 +979,16 @@ bool StringFragmentation::fragment(int iSub, ColConfig& colConfig,
 
       // If doing accordion join, break here.
       if (accordionJoin && (pRem.m2Calc() < stopMassAccordion || pRem.e() < 0)) {
-      // if (accordionJoin && hadrons.size() == 15) {
+	newHadronNeeded = true;
 	break;
       }
+      
     // End of fragmentation loop.
     }
     
     // Do final two regularly or with accordion join.
     if (accordionJoin) {
-      if (joinEnds(fromPos, event))
+      if (joinEnds(fromPos, event, newHadronNeeded))
 	break;
       nVetoAccordion += 1;
     } else {
@@ -1699,7 +1704,7 @@ void StringFragmentation::revertFinalBreak(bool fromPos, const Event& event) {
 // preserve energy-momentum conservation.
 
 bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
-  bool forbidPopcornNow, double strangeJunc) {
+				   bool forbidPopcornNow, double strangeJunc, bool newHadronNeeded) {
 
   // With probability probUndoFinal, revert the final string break before
   // joining string ends.
@@ -1711,7 +1716,8 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   // TODO: Remove this, it's just for bugfixing
   StringEnd& fromEnd = fromPos ? posEnd : negEnd;
   StringEnd& otherEnd = fromPos ? negEnd : posEnd;
-  fromEnd.newHadron(kappaModifier, forbidPopcornNow, strangeJunc, probQQmod);
+  if (newHadronNeeded)
+    fromEnd.newHadron(kappaModifier, forbidPopcornNow, strangeJunc, probQQmod);
 
   // Calculate the transverse momentum of the two joining hadrons.
   double pxFinalPos = fromPos ? posEnd.pxOld + posEnd.pxNew
@@ -1823,12 +1829,12 @@ bool StringFragmentation::joinEnds(bool fromPos, const Event& event,
   double eFinalNeg = sqrt(m2TFinalNeg);
   Vec4 pFinalNeg = Vec4(pxFinalNeg, pyFinalNeg, 0.0, eFinalNeg);
   // TODO: No need for this variable.
-  int iFinalNeg = hadrons.append(idFinalNeg, 1216, iPos, iNeg, 0, 0, 0, 0, pFinalNeg, mFinalNeg);
+  int iFinalNeg = hadrons.append(idFinalNeg, 83, iPos, iNeg, 0, 0, 0, 0, pFinalNeg, mFinalNeg);
 
   // Add the positive joining hadron at rest.
   double eFinalPos = sqrt(m2TFinalPos);
   Vec4 pFinalPos = Vec4(pxFinalPos, pyFinalPos, 0.0, eFinalPos);
-  int iFinalPos = hadrons.append(idFinalPos, 1216, iPos, iNeg, 0, 0, 0, 0,
+  int iFinalPos = hadrons.append(idFinalPos, 84, iPos, iNeg, 0, 0, 0, 0,
 				 pFinalPos, mFinalPos);
 
   // Boost positive hadron to give required rapidity spacing.
@@ -2135,8 +2141,8 @@ bool StringFragmentation::finalTwo(bool fromPos, const Event& event,
     }
 
     // Update status codes for junction baryons.
-    int statusHadPos = 1216;
-    int statusHadNeg = 1216;
+    int statusHadPos = 83;
+    int statusHadNeg = 84;
 
     // Assign code 87 (fromPos) and 88 (fromNeg) for junction baryons.
     // Check status of iInvDir for possible popcorn meson shifting

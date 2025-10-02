@@ -227,7 +227,7 @@ private:
   // Join the two string ends with a final hadron, and rescale rapidities to
   // preserve energy-momentum conservation.
   bool joinEnds(bool fromPos, const Event& event, bool forbidPopcornNow = false,
-		double strangeJunc = 0.);
+		double strangeJunc = 0., bool newHadronNeeded = true);
 
   // Produce the final two partons to complete the system.
   bool finalTwo(bool fromPos, const Event& event, bool usedPosJun,

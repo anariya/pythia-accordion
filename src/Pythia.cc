@@ -1946,6 +1946,7 @@ bool Pythia::check() {
     + abs(pSum.pz());
   if (epDev > epTolErr * eLab) {
     logger.ERROR_MSG("energy-momentum not conserved");
+    event.list();
     physical = false;
   } else if (epDev > epTolWarn * eLab) {
     logger.WARNING_MSG("energy-momentum not quite conserved");

@@ -25,7 +25,7 @@ namespace Pythia8 {
 
 int main() {
   // Specify string CM energy (GeV).
-  double cme = 500;
+  double cme = 200;
 
   // Specify id of quark for q-qbar hadronisation.
   int qId = 1;
@@ -92,9 +92,9 @@ int main() {
       vector<int> primary;
       for (int i = 0; i < event.size(); ++i) {
 	int status = event[i].status();
-	if (status == 1216 || (status > 80 && status < 90)) {
+	if (status > 80 && status < 90) {
 	  primary.push_back(i);
-	  dNdy.fill(event[i].y());
+          dNdy.fill(event[i].y());
 	  if (hadronCountsReg.find(event[i].id()) == hadronCountsReg.end())
             hadronCountsReg[event[i].id()] = 0;
 	  if (hadronCountsJoin.find(event[i].id()) == hadronCountsJoin.end())
@@ -109,19 +109,20 @@ int main() {
       for (size_t i = 0; i < primary.size() - 1; ++i) {
 	int status = event[primary[i]].status();
 	double deltay = event[primary[i]].y() - event[primary[i + 1]].y();
-	if (status == 1216 && event[primary[i + 1]].status() == 1216) {
+	if (status == 83 && event[primary[i + 1]].status() == 84) {
 	  // Between joining hadrons.
 	  deltayJoinBetween.fill(deltay);
-	  // hadronCountsJoin[event[primary[i]].id()] =
-	  //   hadronCountsJoin[event[primary[i]].id()] + 1;
-	  // totalJoin += 1;
-	} else if (status == 1216) {
+	  hadronCountsJoin[event[primary[i]].id()] =
+	    hadronCountsJoin[event[primary[i]].id()] + 1;
+	  totalJoin += 1;
+	} else if (status == 84 && event[primary[i - 1]].status() == 83) {
 	  // Neighbour to join, and itself a joining hadron.
 	  deltayJoinPos.fill(deltay);
 	  hadronCountsJoin[event[primary[i]].id()] =
 	    hadronCountsJoin[event[primary[i]].id()] + 1;
 	  totalJoin += 1;
-	} else if (event[primary[i + 1]].status() == 1216) {
+	} else if (event[primary[i + 1]].status() == 83
+		   && event[primary[i + 2]].status() == 84) {
 	  // Neighbour to join.
           deltayJoinNeg.fill(deltay);
 	} else if (i == 0) {
